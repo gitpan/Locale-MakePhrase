@@ -1,0 +1,13 @@
+Revision history for Perl extension Locale::MakePhrase.
+
+0.3  Mon Oct 18 15:51:11 EST 2004
+	- Fixed warning when detecting Perl version.
+
+0.2  Sat Sep  4 01:07:46 EST 2004
+	- Added lots more documentation.
+	- Re-implemented sub-modules so as to simplify the design.
+	- Re-wrote the expression evaluation engine... so that it worked...
+
+0.1  Tue Mar  9 08:36:32 EST 2004
+	- First release the package.
+
