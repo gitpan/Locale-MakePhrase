@@ -1,5 +1,5 @@
 package Locale::MakePhrase;
-our $VERSION = 0.1;
+our $VERSION = 0.2;
 our $DEBUG = 0;
 
 =head1 NAME
@@ -404,14 +404,18 @@ use constant MALFORMED_MODE_XML => Encode::FB_XMLCREF;
 use constant NUMERIC_FORMAT_NONE => 1;
 use constant NUMERIC_FORMAT_COMMA => 2;
 use constant NUMERIC_FORMAT_DOT => 3;
-our @EXPORT_OK = qw(MALFORMED_MODE_ESCAPE MALFORMED_MODE_HTML MALFORMED_MODE_XML NUMERIC_FORMAT_NONE NUMERIC_FORMAT_COMMA NUMERIC_FORMAT_DOT);
 our $default_language = "en";
 our $default_backing_store = "Locale::MakePhrase::BackingStore";
 our $default_rule_manager = "Locale::MakePhrase::RuleManager";
 our $default_malformed_mode = MALFORMED_MODE_ESCAPE;
 our $default_numeric_format = NUMERIC_FORMAT_COMMA;
+our $default_panic_language_lookup = 0;
 our $internal_encoding = "utf-8";
 $Data::Dumper::Indent = 1 if $DEBUG;
+
+# Exported symbols
+use vars qw(@EXPORT_OK);
+@EXPORT_OK = qw(MALFORMED_MODE_ESCAPE MALFORMED_MODE_HTML MALFORMED_MODE_XML NUMERIC_FORMAT_NONE NUMERIC_FORMAT_COMMA NUMERIC_FORMAT_DOT);
 
 # We add the 'utf-8' alias for the 'utf8' encoding,
 # as we support both syntactical forms.
@@ -457,7 +461,7 @@ Alternates of the primary tags are then retrieved.
 
 =item 4)
 
-Panic language tags are retrieved for each primary tag.
+Panic language tags are retrieved for each primary tag (if enabled).
 
 =item 5)
 
@@ -554,6 +558,20 @@ the phrase B<E<lt>UNDEFINEDE<gt>>, in place of the undefined value.
 Default: dont show undefined arguments; gracefully replaces arguments
 with an empty string
 
+=item C<panic_language_lookup>
+
+Set this option to true to make L<Locale::MakePhrase> load 'panic'
+languages as defined by L<I18N::LangTags/panic_languages>.  Basically
+it provides a mechanism to allow the engine to return a language
+string from languages which has a similar heritage to the primary
+language(s), if a translation from the primary language hasn't been
+found.
+
+eg: Spanish has a similar heritage as Italian, thus if no translations
+are found in Itelian, then Spanish translations will be used.
+
+Default: donet lookup panic-languages
+
 =item Notes:
 
 If the arguments aren't a hash or hashref, then we assume that the
@@ -599,6 +617,7 @@ sub new {
   $self->{die_on_bad_args} = $options{die_on_bad_args} ? 1 : 0;
   $self->{show_bad_args} = $options{show_bad_args} ? 1 : 0;
   $self->{language_modules} = $self->_load_language_modules();
+  $self->{panic_language_lookup} = $self->_get_panic_language_lookup();
 
   print STDERR "Resultant $class object: ". Dumper($self) if $DEBUG > 7;
   return $self;
@@ -815,7 +834,7 @@ sub stringify_number {
   }
 
   # We optionally apply numeric formatting (ie put comma's into big numbers)
-  if (ref($self) and $self->{numeric_format}) {
+  if (ref($self) and $self->{numeric_format} != NUMERIC_FORMAT_NONE) {
 
     # The initial \d+ gobbles as many digits as it can, and then we
     # backtrack so it un-eats the rightmost three, and then we
@@ -892,6 +911,27 @@ sub language_classes {
 
 #--------------------------------------------------------------------------
 
+=head2 $format numeric_format(<$format>)
+
+This method allows you to set and/or get the format that is being used
+for numeric formatting.
+
+=cut
+
+sub numeric_format             {
+  if (@_ > 1) {
+    if ($_[1] == NUMERIC_FORMAT_NONE or
+        $_[1] == NUMERIC_FORMAT_COMMA or
+        $_[1] == NUMERIC_FORMAT_DOT) {
+      $_[0]->{numeric_format} = $_[1];
+    } else {
+      die_from_caller("Invalid numeric format: " . $_[1]);
+    }
+  }
+  shift->{numeric_format};
+}
+#--------------------------------------------------------------------------
+
 =head2 Accessor methods
 
 =over 2
@@ -920,17 +960,21 @@ Returns the loaded rule manager instance.
 
 Returns the output character set encoding.
 
-=item $string B<malformed_character_mode()>
+=item $int B<malformed_character_mode()>
 
 Returns the current UTF-8 malformed character output mode.
 
-=item $string B<die_on_bad_args()>
+=item $bool B<die_on_bad_args()>
 
-Returns the current UTF-8 malformed character output mode.
+Returns the current state of 'L<die_on_bad_args|Locale::MakePhrase/die_on_bad_args>'.
 
-=item $string B<show_bad_args()>
+=item $bool B<show_bad_args()>
 
-Returns the current UTF-8 malformed character output mode.
+Returns the current state of 'L<show_bad_args|Locale::MakePhrase/show_bad_args>'.
+
+=item $bool b<panic_language_lookup()>
+
+Returns the current state of 'L<panic_language_lookup|Locale::MakePhrase/panic_language_lookup>'.
 
 =back
 
@@ -942,10 +986,10 @@ sub language_modules           { shift->{language_modules}           }
 sub backing_store              { shift->{backing_store}              }
 sub rule_manager               { shift->{rule_manager}               }
 sub encoding                   { shift->{encoding}                   }
-sub numeric_format             { shift->{numeric_format}             }
 sub malformed_character_mode   { shift->{malformed_character_mode}   }
 sub die_on_bad_args            { shift->{die_on_bad_args}            }
 sub show_bad_args              { shift->{show_bad_args}              }
+sub panic_language_lookup      { shift->{panic_language_lookup}      }
 
 #--------------------------------------------------------------------------
 # The following methods are not part of the API - they are private.
@@ -1059,7 +1103,7 @@ sub _get_rule_manager {
 #
 # d) generate 'alternate' languages tags for result from c)
 #
-# e) add the 'panic' language tags from the results of d)
+# e) add the 'panic' language tags from the results of d) (if enabled)
 #
 # f) add the fallback language (after converting it to a language tag)
 #
@@ -1092,7 +1136,9 @@ sub _get_languages {
   @languages =  map { $_, I18N::LangTags::alternate_language_tags($_) } @languages;
 
   # get at least an approximate language
-  push @languages, I18N::LangTags::panic_languages(@languages);
+  if ($options->{panic_language_lookup}) {
+    push @languages, I18N::LangTags::panic_languages(@languages);
+  }
 
   # add a fallback language, just in case specified languages dont work
   my $fallback = $self->fallback_language;
@@ -1152,8 +1198,18 @@ sub _get_encoding {
 sub _get_malformed_mode {
   my ($self) = @_;
   my $options = $self->{options};
-  my $mode = MALFORMED_MODE_ESCAPE;
-  $mode = $options->{malformed_character_mode} if (exists $options->{malformed_character_mode});
+  my $mode = $default_malformed_mode;
+  if ($options->{malformed_character_mode}) {
+    if ($options->{malformed_character_mode} == MALFORMED_MODE_ESCAPE) {
+      $mode = MALFORMED_MODE_ESCAPE;
+    } elsif ($options->{malformed_character_mode} == MALFORMED_MODE_HTML) {
+      $mode = MALFORMED_MODE_HTML;
+    } elsif ($options->{malformed_character_mode} == MALFORMED_MODE_XML) {
+      $mode = MALFORMED_MODE_XML;
+    } else {
+      die_from_caller("Unknown malformed-character mode: " . $options->{malformed_character_mode});
+    }
+  }
   return $mode;
 }
 
@@ -1167,11 +1223,13 @@ sub _get_numeric_format {
   my $mode = $default_numeric_format;
   if ($options->{numeric_format}) {
     if ($options->{numeric_format} == NUMERIC_FORMAT_NONE) {
-      $options = NUMERIC_FORMAT_NONE;
+      $mode = NUMERIC_FORMAT_NONE;
     } elsif ($options->{numeric_format} == NUMERIC_FORMAT_DOT) {
-      $options = NUMERIC_FORMAT_DOT;
+      $mode = NUMERIC_FORMAT_DOT;
+    } elsif ($options->{numeric_format} == NUMERIC_FORMAT_COMMA) {
+      $mode = NUMERIC_FORMAT_COMMA;
     } else {
-      $options = NUMERIC_FORMAT_COMMA;
+      die_from_caller("Unknown numeric-formatting mode: " . $options->{numeric_format});
     }
   }
   return $mode;
@@ -1215,6 +1273,24 @@ sub _load_language_modules {
   }
 
   return \@language_modules;
+}
+
+#--------------------------------------------------------------------------
+#
+# If the user wants to enable 'panic language' support, allow it...
+#
+sub _get_panic_language_lookup {
+  my ($self) = @_;
+  my $options = $self->{options};
+  my $mode = $default_panic_language_lookup;
+  if ($options->{panic_language_lookup}) {
+    if ($options->{panic_language_lookup} == 0 or $options->{panic_language_lookup} == 1) {
+      $mode = $options->{panic_language_lookup};
+    } else {
+      die_from_caller("Unknown value for lookup of panic-languages: " . $options->{panic_language_lookup});
+    }
+  }
+  return $mode;
 }
 
 #--------------------------------------------------------------------------

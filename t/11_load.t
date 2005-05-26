@@ -30,4 +30,3 @@ foreach my $module (@MODULES) {
   ok(! $@) or print "Bail out! Cant load module: $module\n";
 }
 
-exit 0;

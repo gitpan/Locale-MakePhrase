@@ -9,6 +9,13 @@ use Locale::MakePhrase;
 use Locale::MakePhrase::BackingStore::File;
 ok(1);
 
+$Locale::MakePhrase::DEBUG = 0;
+$Locale::MakePhrase::Utils::DEBUG = 0;
+$Locale::MakePhrase::LanguageRule::DEBUG = 0;
+$Locale::MakePhrase::RuleManager::DEBUG = 0;
+$Locale::MakePhrase::BackingStore::DEBUG = 0;
+$Locale::MakePhrase::BackingStore::File::DEBUG = 0;
+
 
 my $bs = new Locale::MakePhrase::BackingStore::File(
   file => 't/lang/lang.mpt',

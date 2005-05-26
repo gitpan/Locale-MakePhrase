@@ -24,6 +24,8 @@ t/11_load.t
 t/12_new.t
 t/21_file.t
 t/22_directory.t
+t/23_postgresql.t
 t/50_translations.t
+t/60_functionality.t
 t/lang/en_au.mpt
 t/lang/lang.mpt

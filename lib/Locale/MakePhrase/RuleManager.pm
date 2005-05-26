@@ -1,5 +1,5 @@
 package Locale::MakePhrase::RuleManager;
-our $VERSION = 0;
+our $VERSION = 0.2;
 our $DEBUG = 0;
 
 =head1 NAME
@@ -191,15 +191,6 @@ rule expression, has a valid rule priority, for the rule set.
 Now that we know what a linguistic rule is, we need to explain some
 minor but important points.
 
-Firstly, arguments must always exist on the left hand side of the
-operator. i.e. this works:
-
-  _1 > 2
-
-this doesn't:
-
-  2 < _1
-
 Each symbol in a rule expression needs to be separated with a space,
 i.e. this works:
 
@@ -220,9 +211,8 @@ this doesn't:
 
   _1 eq fred
 
-Note that we support single and double quote characters,
-including mixed quoting (for simplistic cases), i.e. these
-work:
+We support single and double quote characters, including mixed quoting
+(for simplistic cases), i.e. these work:
 
   _1 eq "some text"
   _1 eq 'some text'
@@ -233,11 +223,20 @@ this doesn't (i.e. there is no quote 'escape' capability):
 
   _1 eq "\"something\""
 
+Note that expressions are not unary, as in (this checks if the
+first argument has any length):
+
+  length(_1)
+
+rather, they should look like:
+
+  length(_1) > 0
+
 =head1 APPLYING RULES TO LANGUAGES
 
-=over 6
+=over 8
 
-=item NOTE:
+=item CAVEAT:
 
 The following description of rule evaluation is correct at the time of
 writing. However, as this module evolves, we may alter the
@@ -570,6 +569,7 @@ sub evaluate {
       die_from_caller("Unknown function: $func") unless exists $FUNCTIONS{$func};
       $func_type = $FUNCTIONS{$func}->[0];
       die_from_caller("Mis-matched function/operator types\n- function: $func\n- operator: $op") if ($func_type != UNDEFINED and $func_type != $op_type);
+      die_from_caller("Invalid use of undefined argument (number: $arg) when used with function: $func") if ($func_type != UNDEFINED and not defined $val);
       my $required = $FUNCTIONS{$func}->[1];
       my $sub = $FUNCTIONS{$func}->[2];
       if (@$required) {
@@ -585,9 +585,12 @@ sub evaluate {
       } else {
         $val = &$sub($val);
       }
-      print STDERR "Function result: ", defined $val ? $val : "", "\n" if $DEBUG > 5;
+      defined($val) or $val = "";
+      print STDERR "Function result: $val\n" if $DEBUG > 5;
+    } else {
+      die_from_caller("Invalid use of undefined argument (number: $arg) expression: $expression") unless (defined $val);
     }
-  
+
     push @subexpressions, "$quote$val$quote $op $text";
   }
   

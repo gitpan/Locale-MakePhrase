@@ -151,47 +151,22 @@ sub init {
     # make sure this handle is a valid database handle
     die_from_caller("Database handle is not real?") unless (ref($dbh) and $dbh->can('ping') and $dbh->ping());
 
-  # otherwise, make a specific database handle
+  # otherwise, make a specific database handle.. and since we
+  # constructed the database handle -> we definately need to destroy it
   } else {
+
     die_from_caller("Missing 'database' argument") unless $options{database};
     $options{host} = "localhost" unless $options{host};
     $options{port} = "5432" unless $options{port};
     $options{user} = "" unless $options{user};
     $options{password} = "" unless $options{password};
 
-    my $connect_string = "dbi:Pg:dbname=". $options{database} .";host=". $options{host} .";port=". $options{port};
-    my $connect_options = $default_connect_options;
-    $connect_options = $options{connect_options} if exists $options{connect_options};
-
-    # try connecting to database
-    eval { $dbh = DBI->connect($connect_string,$options{user},$options{password},$connect_options); };
-    die_from_caller("Failed to connect to database:\n- connect string: $connect_string\n- user: ". $options{user} ."\n- password: ". $options{password} ."\n- connect options: ". Dumper($connect_options) ."\nError info:\n$@\n") if ($@);
-
-    # if we constructed the database handle - we definately need to destroy it
+    $dbh = $self->_connect(\%options);
     $self->{owned} = 1;
   }
 
-  # make sure user specified table exists
-  eval {
-    my $qry = "SELECT 1 FROM ". $self->{table} ." LIMIT 1";
-    my $sth = $dbh->prepare($qry);
-    $sth->execute();
-  };
-  if ($@) {
-    $dbh->disconnect() if ($self->{owned} and $dbh);
-    die_from_caller("Table '". $self->{table} ."' doesn't exist");
-  }
-
-  # make sure user specified table has (at least) the minimum correct structure
-  eval {
-    my $qry = "SELECT $implicit_table_structure FROM ". $self->{table} ." LIMIT 1";
-    my $sth = $dbh->prepare($qry);
-    $sth->execute();
-  };
-  if ($@) {
-    $dbh->disconnect() if ($self->{owned} and $dbh);
-    die_from_caller("Table ". $self->{table} ." doesn't conform to implicit table structure: $implicit_table_structure");
-  }
+  # test database connection for table structure
+  $self->_test_table_structure($dbh);
 
   # all is good...
   $self->{dbh} = $dbh;
@@ -236,6 +211,9 @@ sub get_rules {
   my $table = $self->{table};
   my $dbh = $self->{dbh};
   my @translations;
+
+  # ensure connection is good...
+  $dbh->ping() or $dbh = $self->_reconnect($dbh);
 
   # setup query
   my $qry = $self->get_query($table,$context,$languages);
@@ -313,6 +291,103 @@ sub DESTROY {
     delete $self->{dbh};
     delete $self->{owned};
   }
+}
+
+#--------------------------------------------------------------------------
+# The following methods are not part of the API - they are private.
+#
+# This means that everything above this code-break is allowed/designed
+# to be overloaded.
+#--------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------
+#
+# Connect to database using specified connection options
+#
+sub _connect {
+  my ($self,$options) = @_;
+
+  my $connect_string = "dbi:Pg:dbname=". $options->{database} .";host=". $options->{host} .";port=". $options->{port};
+  my $connect_options = $default_connect_options;
+  $connect_options = $options->{connect_options} if exists $options->{connect_options};
+
+  # try connecting to database
+  my $dbh;
+  eval { $dbh = DBI->connect($connect_string,$options->{user},$options->{password},$connect_options); };
+  die_from_caller("Failed to connect to database:\n- connect string: $connect_string\n- user: ". $options->{user} ."\n- password: ". $options->{password} ."\n- connect options: ". Dumper($connect_options) ."\nError info:\n$@\n") if ($@);
+
+  $self->{database} = $options->{database};
+  $self->{host} = $options->{host};
+  $self->{port} = $options->{port};
+  $self->{user} = $options->{user};
+  $self->{password} = $options->{password};
+  $self->{connect_options} = $connect_options;
+  return $dbh;
+}
+
+#--------------------------------------------------------------------------
+#
+# Test the structure of the database table -> need to make sure that
+# the table is capable of performing the table-lookups.
+#
+sub _test_table_structure {
+  my ($self,$dbh) = @_;
+
+  # make sure user specified table exists
+  eval {
+    my $qry = "SELECT 1 FROM ". $self->{table} ." LIMIT 1";
+    my $sth = $dbh->prepare($qry);
+    $sth->execute();
+  };
+  if ($@) {
+    $dbh->disconnect() if ($self->{owned} and $dbh);
+    die_from_caller("Table '". $self->{table} ."' doesn't exist");
+  }
+
+  # make sure user specified table has (at least) the minimum correct structure
+  eval {
+    my $qry = "SELECT $implicit_table_structure FROM ". $self->{table} ." LIMIT 1";
+    my $sth = $dbh->prepare($qry);
+    $sth->execute();
+  };
+  if ($@) {
+    $dbh->disconnect() if ($self->{owned} and $dbh);
+    die_from_caller("Table ". $self->{table} ." doesn't conform to implicit table structure: $implicit_table_structure");
+  }
+}
+
+#--------------------------------------------------------------------------
+#
+# Sometimes the database will dissappear (possibly due to it re-starting...).
+# As such, we need to reconnect to the database, as the current database handle
+# is invalid.
+#
+sub _reconnect {
+  my ($self,$dbh) = @_;
+
+  # Make sure that we own the database handle
+  die_from_caller("The database connection has failed for some reason... I cannot reconnect as I dont own the database handle...") unless $self->{owned};
+
+  # cleanup handle
+  $dbh->disconnect() if $dbh;
+  undef $dbh;
+
+  # reconnect to database
+  my $options;
+  $options->{database} = $self->{database};
+  $options->{host} = $self->{host};
+  $options->{port} = $self->{port};
+  $options->{user} = $self->{user};
+  $options->{password} = $self->{password};
+  $options->{connect_options} = $self->{connect_options};
+  $dbh = $self->_connect($options);
+
+  # test database table structure
+  $self->_test_table_structure($dbh);
+
+  # all is good...
+  $self->{dbh} = $dbh;
+  return $dbh;
 }
 
 1;

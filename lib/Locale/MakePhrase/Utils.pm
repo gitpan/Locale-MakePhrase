@@ -1,5 +1,5 @@
 package Locale::MakePhrase::Utils;
-our $VERSION = 0.1;
+our $VERSION = 0.2;
 our $DEBUG = 0;
 our $DIE_FROM_CALLER = 0;
 
@@ -31,6 +31,8 @@ use vars qw(@EXPORT_OK);
   die_from_caller
 );
 
+#--------------------------------------------------------------------------
+
 =head2 boolean is_number(value)
 
 =over 2
@@ -50,6 +52,8 @@ sub is_number {
   return 0;
 }
 
+#--------------------------------------------------------------------------
+
 =head2 string left(string,length)
 
 =over 2
@@ -64,6 +68,8 @@ sub left {
   return substr($_[0],0,$_[1]);
 }
 
+#--------------------------------------------------------------------------
+
 =head2 string right(string,length)
 
 =over 2
@@ -77,6 +83,8 @@ Return the right part of a sub-string.
 sub right {
   return substr($_[0],-$_[1],$_[1]);
 }
+
+#--------------------------------------------------------------------------
 
 =head2 string alltrim(string)
 
@@ -95,6 +103,8 @@ sub alltrim {
   $value =~ s/\s*$//;
   $value;
 }
+
+#--------------------------------------------------------------------------
 
 =head2 void die_from_caller($message)
 
@@ -144,6 +154,7 @@ sub die_from_caller {
 
 1;
 __END__
+#--------------------------------------------------------------------------
 
 =cut
 

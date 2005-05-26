@@ -12,6 +12,14 @@ use Locale::MakePhrase::BackingStore;
 use Locale::MakePhrase;
 ok(1);
 
+$Locale::MakePhrase::DEBUG = 0;
+$Locale::MakePhrase::Utils::DEBUG = 0;
+$Locale::MakePhrase::LanguageRule::DEBUG = 0;
+$Locale::MakePhrase::RuleManager::DEBUG = 0;
+$Locale::MakePhrase::BackingStore::DEBUG = 0;
+
+
+
 {
   my $lr = new Locale::MakePhrase::LanguageRule(
     key => 'testing',
@@ -33,4 +41,3 @@ ok(1);
   ok($mp) or print "Failed to make a 'Locale::MakePhrase' instance.\n";
 }
 
-exit 0;
