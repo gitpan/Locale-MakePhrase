@@ -1,5 +1,5 @@
 package Locale::MakePhrase::RuleManager;
-our $VERSION = 0.2;
+our $VERSION = 0.4;
 our $DEBUG = 0;
 
 =head1 NAME
@@ -91,7 +91,7 @@ are evaluated.
 Let's show an example of a simple expression:
 
   _1 == 0
-	
+
 The use of the underscore signifies that this value is to be
 classified as an argument number and is not to be treated literally.
 This expression says, 'Does the first argument have a value equal to
@@ -274,27 +274,27 @@ contains a description of the current implementation.
 
 =over 3
 
-=item 1)
+=item 1.
 
 L<Locale::MakePhrase> generates a list of rules which are applicable for
 required languages (plus any fallback languages).
 
-=item 2)
+=item 2.
 
 The rules are sorted by the L<Locale::MakePhrase::RuleManager> module.
 
-=item 3)
+=item 3.
 
 Each expression from the sorted rules are evaluated. If the rule
 succeeds, the corresponding text is returned.  If not, the next rule
 is evaluated.
 
-=item 4)
+=item 4.
 
 If finally no match is found, the input string is used as the output
 string.
 
-=item 5)
+=item 5.
 
 Any arguments are then applied to the output string.
 
@@ -306,7 +306,7 @@ Shown below are examples of various rules; some rules have no
 expressions and/or arguments; all rules must have at least a priority
 of zero or more.
 
-=over 1
+=over 2
 
 =item Rule 1:
 
@@ -406,7 +406,6 @@ This is a list of available functions:
                          returns 0 or 1
  length(x)        -      Length of value of the argument,   length(_1)
                          returns an integer >= 0
- int(x)         Number   Convert argument to a numeric      int(_1)
  abs(n)         Number   Numerical absolute of argument     abs(_3)
  lc(s)          String   Lowercase version                  lc(_1)
  uc(s)          String   Uppercase version                  uc(_2)
@@ -430,18 +429,17 @@ use utf8;
 use base qw();
 use Data::Dumper;
 use Locale::MakePhrase::Utils qw(is_number left right alltrim die_from_caller);
-$Data::Dumper::Indent = 1 if $DEBUG;
+local $Data::Dumper::Indent = 1 if $DEBUG;
 
-# String displayed for 'show_bad_args'
-use constant UNDEFINED_STRING => "<UNDEFINED>";
+use constant STR_INVALID_TRANSLATED => "<INVALID_TRANSLATION>";
 
 # Available datatypes
 use constant UNKNOWN => -1;
-use constant UNDEFINED => 0;
+use constant UNSPECIFIED => 0;
 use constant NUMBER => 1;
 use constant STRING => 2;
 
-# Available operaties
+# Available operators
 our %OPERATORS = (
   '==' => NUMBER,
   '!=' => NUMBER,
@@ -455,25 +453,25 @@ our %OPERATORS = (
 
 # Available functions
 our %FUNCTIONS = (
-  'defined' => [ UNDEFINED, [], sub { defined($_[0]);     } ],
-  'length'  => [ UNDEFINED, [], sub { length($_[0]);      } ],
-  'int'     => [ UNDEFINED, [], sub { int($_[0]);         } ],
-  'abs'     => [ NUMBER,    [], sub { abs($_[0]);         } ],
-  'lc'      => [ STRING,    [], sub { lc($_[0]);          } ],
-  'uc'      => [ STRING,    [], sub { uc($_[0]);          } ],
-  'left'    => [ STRING,   [1], sub { left($_[0],$_[1]);  } ],
-  'right'   => [ STRING,   [1], sub { right($_[0],$_[1]); } ],
-  'substr'  => [ STRING, [1,2], sub {
-                                  return substr($_[0], $_[1]) if @_ == 2;
-                                  return substr($_[0], $_[1], $_[2]);  }],
+  'defined' => [ UNSPECIFIED, [], sub { defined($_[0]);     } ],
+  'length'  => [ UNSPECIFIED, [], sub { length($_[0]);      } ],
+  'abs'     => [ NUMBER,      [], sub { abs($_[0]);         } ],
+  'lc'      => [ STRING,      [], sub { lc($_[0]);          } ],
+  'uc'      => [ STRING,      [], sub { uc($_[0]);          } ],
+  'left'    => [ STRING,     [1], sub { left($_[0],$_[1]);  } ],
+  'right'   => [ STRING,     [1], sub { right($_[0],$_[1]); } ],
+  'substr'  => [ STRING,   [1,2], sub {
+                                    return substr($_[0], $_[1]) if @_ == 2;
+                                    return substr($_[0], $_[1], $_[2]);
+                                  } ],
 );
 
 # Predefined regular expression patterns
 my $ops_re; { my $tmp = join ('|', keys %OPERATORS); $ops_re = qr/$tmp/; }
-my $ltr_re = qr/^_(\d+)\s($ops_re)\s(.*)/;
-my $rtl_re = qr/(.*)\s($ops_re)\s_(\d+)$/;
-my $func_ltr_re = qr/^([a-zA-Z0-9_]+)\(_(\d+)([^)]*)\)\s($ops_re)\s(.*)$/;
-my $func_rtl_re = qr/^(.*)\s($ops_re)\s([a-zA-Z0-9_]+)\(_(\d+)([^)]*)\)$/;
+my $ltr_re = qr/^_(\d+)\s+($ops_re)\s+(.*)/;
+my $rtl_re = qr/(.*)\s+($ops_re)\s+_(\d+)$/;
+my $func_ltr_re = qr/^([a-zA-Z0-9_]+)\(_(\d+)([^)]*)\)\s+($ops_re)\s+(.*)$/;
+my $func_rtl_re = qr/^(.*)\s+($ops_re)\s+([a-zA-Z0-9_]+)\(_(\d+)([^)]*)\)$/;
 
 
 #--------------------------------------------------------------------------
@@ -519,20 +517,19 @@ of the evaluation of the expression.
 
 sub evaluate {
   my $self = shift;
-  die_from_caller("Missing rule expression?!") unless @_;
+  die("Missing rule expression?!") unless @_;
   my $expression = alltrim(shift);
   print STDERR "Evaluating rule: $expression\n" if $DEBUG > 1;
   print STDERR "Arguments: ". Dumper(\@_) if $DEBUG > 5;
   my $evaluation = 0;
   my @expressions;
-  my ($arg,$func,$op,$text);
+  my $arg_count = scalar(@_);
 
   # Break apart expression into subexpressions, so that it can be validated
   my @subexpressions;
-  foreach my $chunk (split(' && ',$expression)) {
-    $chunk = alltrim($chunk);
-    my ($arg,$op,$text,$quote,$func,$func_args,$val) = ("","","","","","","");
-    my ($op_type,$func_type) = (UNKNOWN,UNKNOWN);
+  foreach my $chunk (split('\s+&&\s+',$expression)) {
+    my ($arg,$val,$op,$text,$quote,$func,$func_args) = ("","","","","","","");
+    my ($val_type,$op_type,$text_type,$func_type) = (UNKNOWN,UNKNOWN,UNKNOWN,UNKNOWN);
   
     # Break apart subexpression
     if ($chunk =~ $ltr_re) {
@@ -544,37 +541,40 @@ sub evaluate {
     } elsif ($chunk =~ $func_rtl_re) {
       ($text,$op,$func,$arg,$func_args) = ($1,$2,$3,$4,$5);
     } else {
-      die_from_caller("Invalid subexpression: $chunk");
+      die_from_caller("Invalid subexpression ($chunk) found in expression:",$expression);
     }
-  
+
     # Grab properties for this subexpression - test for conformity
     die_from_caller("Missing argument ?!") unless $arg;
     die_from_caller("Missing operator ?!") unless $op;
     die_from_caller("Missing text value ?!") unless length $text;
     die_from_caller("Unknown operator: $op") unless exists $OPERATORS{$op};
-    $op_type = $OPERATORS{$op};
-    $arg = int($arg);
-    die_from_caller("Insufficient number of arguments to evaluate expression (need at least $arg)") if @_ < $arg;
+    die_from_caller("Incorrect number of arguments in expression (trying to use $arg arguments when $arg_count arguments supplied):",$expression) if ($arg > $arg_count);
+    if ($text =~ /^(['"])(.*)(["'])$/) {
+      $quote = $1 if ($1 eq $3);
+      $text = defined $2 ? $2 : "";
+    }
     $val = $_[$arg-1];
-    die_from_caller("Mis-matched argument/operator types\n- argument: $val\n- operator: $op") if ($op_type == NUMBER and defined $val and not is_number($val));
-    die_from_caller("Mis-matched text-value/operator types\n- text-value: $text\n- operator: $op") if
-  ($op_type == NUMBER and not is_number($text));
-    if ($text =~ /^(['"]).*(["'])$/ and $1 eq $2) { $quote = $1; }
+    $op_type = $OPERATORS{$op};
+    $val_type = not defined $val ? UNSPECIFIED : is_number($val) ? NUMBER : STRING;
+    $text_type = is_number($text) ? NUMBER : STRING;
     die_from_caller("Missing quote-marks for text value: $text") if ($op_type == STRING and not length $quote);
-  
-    print STDERR "Rule properties: \n- argument: $arg \n- function: $func \n- operator: $op \n- text: $text \n- quote: $quote \n- value: ", defined $val ? $val : "", " \n" if $DEBUG > 1;
-  
+    die_from_caller("Mis-matched text-value/operator types\n- text-value: $text \n- operator: $op") if ($op_type == NUMBER and $text_type != NUMBER);
+
+    print STDERR "Rule properties:\n- argument: $arg\n- function: $func\n- operator: $op\n- text: $text\n- quote: $quote\n- value: ", defined $val ? $val : "", "\n" if $DEBUG > 1;
+
     # build expression
     if ($func) {
       die_from_caller("Unknown function: $func") unless exists $FUNCTIONS{$func};
       $func_type = $FUNCTIONS{$func}->[0];
-      die_from_caller("Mis-matched function/operator types\n- function: $func\n- operator: $op") if ($func_type != UNDEFINED and $func_type != $op_type);
-      die_from_caller("Invalid use of undefined argument (number: $arg) when used with function: $func") if ($func_type != UNDEFINED and not defined $val);
+      die_from_caller("Mis-matched function/operator types\n- function: $func\n- operator: $op") if ($func_type != UNSPECIFIED and $func_type != $op_type);
+      die_from_caller("Invalid use of undefined argument (argument number: $arg) when used with function: $func") if ($val_type == UNSPECIFIED and $func_type != UNSPECIFIED);
       my $required = $FUNCTIONS{$func}->[1];
       my $sub = $FUNCTIONS{$func}->[2];
       if (@$required) {
         die_from_caller("Incorrect number of arguments for function: $func (need: ". join(',',@$required) ." - none provided)") unless length $func_args;
-        my @func_args = split(',',$func_args);
+        $func_args = alltrim($func_args);
+        my @func_args = split(/\s*,\s*/,$func_args);
         shift @func_args if @func_args > 1;
         my $found = 0;
         foreach my $required_arg_count (@$required) {
@@ -585,30 +585,32 @@ sub evaluate {
       } else {
         $val = &$sub($val);
       }
-      defined($val) or $val = "";
-      print STDERR "Function result: $val\n" if $DEBUG > 5;
+      $val = 0 unless defined $val;
+      $val_type = $op_type;
+      print STDERR "Function result: ", defined $val ? $val : "", "\n" if $DEBUG > 5;
     } else {
-      die_from_caller("Invalid use of undefined argument (number: $arg) expression: $expression") unless (defined $val);
+      die_from_caller("Invalid use of undefined argument (argument number: $arg) expression: $expression") unless (defined $val);
     }
 
-    push @subexpressions, "$quote$val$quote $op $text";
-  }
+    print STDERR "- op_type $op_type\n- val_type $val_type\n- text_type $text_type\n" if $DEBUG > 3;
   
-  die_from_caller("Failed building expression") unless @subexpressions;
+    die_from_caller("Mis-matched argument/operator types\n- argument: $val\n- operator: $op") if (($op_type == STRING and $val_type != STRING) or ($op_type == NUMBER and $val_type != NUMBER));
+    push @subexpressions, "$quote$val$quote $op $quote$text$quote";
+  }
+  die("Failed building expression") unless @subexpressions;
   my $parsed_expression = join(' && ',@subexpressions);
-
+  
   # Evaluate expression - needs to return some sort or true or false value.
   # Note that under Perl, this is as simple as an 'eval'  :-)
   my $expr_result = eval $parsed_expression;
   $expr_result = $expr_result ? 1 : 0;
-
   print STDERR "Expression to evaluate: $parsed_expression   result: $expr_result\n" if $DEBUG;
   return $expr_result;
 }
 
 #--------------------------------------------------------------------------
 
-=head2 \@rules sort(\@rule_objects, \@languages)
+=head2 \@rules sort(\@rule_objects,\@languages)
 
 The guts of the sorter; by subclassing this module, you can implement
 your own sorting routine.
@@ -619,26 +621,26 @@ evaluated in-order.
 
 =over 3
 
-=item 1)
+=item 1.
 
 Rules are sorted histest to lowest priority, for the primary language,
 for rules which have expressions.
 
-=item 2)
+=item 2.
 
 The next available fallback language is chosen as the language to use;
 step 1 is repeated.
 
-=item 3)
+=item 3.
 
 This process continues until no further fallback languages are available.
 
-=item 4)
+=item 4.
 
 The non-expression rules are then evaluated according to the preferred
 language.
 
-=item 5)
+=item 5.
 
 If that fails, the fallback languages are tried.  This continues for
 each fallback language.
@@ -673,68 +675,74 @@ sub sort {
 
 #--------------------------------------------------------------------------
 
-=head2 $string apply_arguments($translation)
+=head2 $string apply_arguments($makephrase,$translation,@arguments)
 
 This applies any/all arguments, to the outgoing text phrase; if the
-argument is text, it undergoes the translation process; if the
-argument is numeric, it is formatted by the L<Locale::MakePhrase> (or
-its sub-classes) C<format_number> method.
+argument is text, it (optionally) undergoes the translation process;
+if the argument is numeric, it is formatted by the L<Locale::MakePhrase>
+C<format_number> method.
 
 =cut
 
 sub apply_arguments {
   my ($self,$makephrase,$translation,@args) = @_;
+print "HERE:".Dumper(@args) if $DEBUG;
   my $arg_count = scalar(@args);
   my $output = "";
   my $in_group = 0;
-  while($translation =~ /\G(
-                           [^\~\[\]]+  # non-~[] stuff
-                           |
-                           ~[\[\]\~]   # ~[, ~], ~~
-                           |
-                           \[          # [ presumably opening a group
-                           |
-                           \]          # ] presumably closing a group
-                           |
-                           .*          # any other characters
-                           |
-                           $
-                         )/xgs ){
-    my $chunk = $1;
+  WHILE_LOOP: while($translation =~ /\G(
+                                       [^\~\[\]]+  # non-~[] stuff
+                                       |
+                                       ~[\[\]\~]   # ~[, ~], ~~
+                                       |
+                                       \[          # [ presumably opening a group
+                                       |
+                                       \]          # ] presumably closing a group
+                                       |
+                                      .*          # any other characters
+                                       |
+                                       $
+                                       )/xgs ){
+    my $chunk = defined $1 ? $1 : "";
     if ($chunk eq '[') {
-      die_from_caller ("Found recursive beginning square-bracket:",$translation) if ($in_group != 0);
+      die_from_caller("Found recursive beginning square-bracket:",$translation) if $in_group;
       $in_group++;
     } elsif ($chunk eq ']') {
       $in_group--;
-      die_from_caller ("Found recursive ending square-bracket:",$translation) if ($in_group != 0);
-    } elsif ($chunk eq '~[' or $chunk eq '~]' or $chunk eq '~~') {
-      $output .= substr($chunk,1);
+      die_from_caller("Found recursive ending square-bracket:",$translation) if $in_group;
     } elsif ($in_group) {
       # inside square bracket group
-      $chunk =~ s/^_//;
-      my $idx = int($chunk)-1;
-      my $val = "";
-      if ($idx >= $arg_count) {
-        if ($makephrase->{die_on_bad_args}) {
-          die_from_caller ("Incorrect number of arguments supplied to translation - supplied $arg_count (need at least $idx).");
-        } elsif ($makephrase->{show_bad_args}) {
-          $val = UNDEFINED_STRING;
-        }
-      } elsif (not defined $args[$idx]) {
-        if ($makephrase->{die_on_bad_args}) {
-          die_from_caller ("Argument is not defined for chunk:");
-        } elsif ($makephrase->{show_bad_args}) {
-          $val = UNDEFINED_STRING;
+      $chunk = alltrim($chunk);
+      if ($chunk =~ /^_/) {
+        my ($idx,$options) = split(/\s*,\s*/,$chunk,2);
+        $options = { split(/\s*(?:(?:=>)|(?:,))\s*/,$options) } if $options;
+        $idx =~ s/^_//;
+        $idx = int($idx)-1;
+        if ($idx >= $arg_count) {
+          die_from_caller("Incorrect number of arguments used in translation - supplied $arg_count, tried to use at least $idx.") if ($makephrase->{die_on_bad_translation});
+          $output .= STR_INVALID_TRANSLATED;
+          last WHILE_LOOP;
+        } else {
+          my $val = $args[$idx];
+          if (defined $val and length $val) {
+            if (is_number($val)) {
+              $output .= $makephrase->format_number($val,$options);
+            } elsif ($makephrase->{translate_arguments}) {
+              $output .= $makephrase->translate($val);
+            } else {
+              $output .= $val;
+            }
+          }
         }
       } else {
-        $val = $args[$idx];
+        if ($makephrase->{die_on_bad_translation}) {
+          die_from_caller("Invalid translated string: $translation");
+        }
+        $output .= STR_INVALID_TRANSLATED;
+        last WHILE_LOOP;
       }
-      if (is_number($val)) {
-        $val = $makephrase->format_number($val);
-      } elsif ($val) {
-        $val = $makephrase->translate($val);
-      }
-      $output .= $val;
+    } elsif (substr($chunk,0,1) eq '~') {
+      $output .= substr($chunk,1);
     } else {
       $output .= $chunk;
     }

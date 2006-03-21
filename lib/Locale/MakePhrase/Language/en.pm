@@ -1,5 +1,5 @@
 package Locale::MakePhrase::Language::en;
-our $VERSION = 0.1;
+our $VERSION = 0.2;
 
 =head1 NAME
 
@@ -12,7 +12,7 @@ English language.
 
 =head1 API
 
-The following functions are implemented:
+The following methods are implemented:
 
 =cut
 
@@ -22,6 +22,19 @@ use utf8;
 use Data::Dumper;
 use base qw(Locale::MakePhrase::Language);
 use Locale::MakePhrase::Utils qw(left);
+
+#--------------------------------------------------------------------------
+
+=head2 $self new([...])
+
+[ Inherited from L<Locale::MakePhrase::Language>. ]
+
+No options are necessary for this module.
+
+If you are using this as an example, you would implement the
+C<init([...])> method, then return a reference to C<$self>.
+
+=cut
 
 #--------------------------------------------------------------------------
 

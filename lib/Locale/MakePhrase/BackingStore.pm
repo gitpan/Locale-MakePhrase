@@ -1,5 +1,5 @@
 package Locale::MakePhrase::BackingStore;
-our $VERSION = 0.1;
+our $VERSION = 0.2;
 our $DEBUG = 0;
 
 =head1 NAME
@@ -17,28 +17,32 @@ language, or a single file for all languages.  It may choose to
 implement database lookup... and so on.
 
 This base class implements a generic implementation, which can be used
-as a starting point. You should also look at Locale::MakePhrase::BackingStore::<some module>
+as a starting point. You should also look at Locale::MakePhrase::BackingStore::E<lt>some moduleE<gt>
 for more examples.
 
 L<Locale::MakePhrase> implements the following backing stores:
 
 =over 2
 
-=item -
+=item *
 
 Single file for all languages (see backing store:
 L<File|Locale::MakePhrase::BackingStore::File>)
 
-=item -
+=item *
 
 Files stored within a directory (see backing store:
 L<Directory|Locale::MakePhrase::BackingStore::Directory>)
 
-=item -
+=item *
+
+Generic database table (see backing store:
+L<Database|Locale::MakePhrase::BackingStore::Database>)
+
+=item *
 
 PostgreSQL database table (see backing store:
-L<PostgreSQL|Locale::MakePhrase::BackingStore::PostgreSQL>)
-
+L<Database::PostgreSQL|Locale::MakePhrase::BackingStore::Database::PostgreSQL>)
 
 =back
 
@@ -47,16 +51,16 @@ store by doing the following:
 
 =over 3
 
-=item 1)
+=item 1.
 
 Make a package which derives from this class.
 
-=item 2)
+=item 2.
 
 Implement the init() method, retrieving any options that may have
 been supplied to the constructor.
 
-=item 3) 
+=item 3.
 
 Overload the get_rules() method, returning a list-reference of
 L<Locale::MakePhrase::LanguageRule> objects, from the translations
@@ -75,7 +79,7 @@ from those translations.
 
 =head1 API
 
-The following functions are implemented:
+The following methods are implemented:
 
 =cut
 
@@ -86,7 +90,7 @@ use utf8;
 use base qw();
 use Locale::MakePhrase::LanguageRule;
 use Locale::MakePhrase::Utils qw(die_from_caller);
-$Data::Dumper::Indent = 1 if $DEBUG;
+local $Data::Dumper::Indent = 1 if $DEBUG;
 
 #--------------------------------------------------------------------------
 
@@ -185,11 +189,11 @@ sub make_rule {
     $args{priority} = shift;
     $args{translation} = shift;
   } else {
-    die_from_caller("Invalid arguments passed to make_rule()");
+    die("Invalid arguments passed to make_rule()");
   }
 
   # Validate arguments
-  die_from_caller("Bad rule definition") unless ($args{language} and $args{translation});
+  die_from_caller("Bad rule definition") unless ($args{language} and defined $args{translation});
 
   # make the rule
   return new Locale::MakePhrase::LanguageRule(%args);

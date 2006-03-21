@@ -57,8 +57,8 @@ translation = This is my home
 key = My name is [_1]
 language = en
 priority = 1
-expression = substr(_1,1) eq "fred"
-translation = My name is Fred
+expression = substr(_1,1) eq "athew"
+translation = My name is Mathew
 
 
 # Used in the 'substr(...)' test case, 3-arg

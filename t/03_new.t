@@ -5,7 +5,7 @@ use warnings;
 use Test;
 BEGIN { plan tests => 4 };
 
-# Lets try something simple - lets just load the main module
+# Lets try something simple - lets just load the main modules
 use Locale::MakePhrase::LanguageRule;
 use Locale::MakePhrase::RuleManager;
 use Locale::MakePhrase::BackingStore;

@@ -49,17 +49,17 @@ something like:
 
 =over 3
 
-=item 1)
+=item 1.
 
 Think of the phrase that you want to say, usually in the language
 that they speak most often.
 
-=item 2)
+=item 2.
 
 Try to understand what it is they are trying to say; that is, they
 determine the context/meaning of the phrase.
 
-=item 3)
+=item 3.
 
 Speak that information in the second language.
 
@@ -173,7 +173,7 @@ A rule has the following properties:
 
 =item language
 
-This is an L<RFC3066|http://www.ietf.org/rfc/rfc3066.txt> language tag (eg 'en' or 'en_au').
+This is an L<RFC3066|http:E<sol>E<sol>www.ietf.orgE<sol>rfcE<sol>rfc3066.txt> language tag (eg 'en' or 'en_au').
 
 =item key
 
@@ -241,7 +241,7 @@ To summarise, the engine implements the following:
 
 =over 3
 
-=item 1)
+=item 1.
 
 Find all language rules where the key matches the input phrase, for
 the corresponding language tag.  Note that the implementation supports
@@ -249,18 +249,18 @@ the concept of fallback languages (eg: 'en_au' falls back to 'en').
 The linguistic rules for the fallback languages which match the key,
 are also retrieved.
 
-=item 2)
+=item 2.
 
 Sort the rules based on a combination of the priority, the language
 tag (eg 'en_au' has higher precedence than 'en') and whether a non-null
 expression exists.  Rules with no expression have the lowest priority.
 
-=item 3)
+=item 3.
 
 Evalute the expression from each rule, starting with the highest
 priority.  The first rule to evaluate to C<true>, is chosen.
 
-=item 4)
+=item 4.
 
 Apply the arguments in-place, to the selected rule's translated value.
 
@@ -270,21 +270,21 @@ Apply the arguments in-place, to the selected rule's translated value.
 
 =over 2
 
-=item -
+=item *
 
 Support an arbitrary number of blanks to fill.
 
-=item - 
+=item * 
 
 Be able to swap the ordering of the blanks, ie positional argument 2
 needs to be able to be the first blank to fill.
 
-=item -
+=item *
 
 Allow translations in dialects of a language to be output, in
 preference to the corresponding translation in the base language.
 
-=item -
+=item *
 
 Support multiple types of backing stores, eg: single file for all 
 languages, a file per language or a database.
@@ -318,4 +318,6 @@ of view of the speaker as well as the receiver.  Since the speaker
 is simply a computer, one possible scenario is to pass the age and
 gender of the user, as arguments to the constructor of the translation
 instance.
+
+=cut
 

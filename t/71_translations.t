@@ -70,8 +70,8 @@ ok($result eq "This is my home") or print "Bail out! Failed left() test 2.\n";
 
 # ---- Function test - substr() 2-arg & 3-arg ----
 
-$result = $mp->translate("My name is [_1]", "afred");
-ok($result eq "My name is Fred") or print "Bail out! Failed substr() test 1 : 2-arg.\n";
+$result = $mp->translate("My name is [_1]", "mathew");
+ok($result eq "My name is Mathew") or print "Bail out! Failed substr() test 1 : 2-arg.\n";
 
 $result = $mp->translate("My name is [_1]", "Wilma"),
 ok($result eq "My name is Wilma") or print "Bail out! Failed substr() test 2.\n";

@@ -1,5 +1,5 @@
 package Locale::MakePhrase::LanguageRule;
-our $VERSION = 0.1;
+our $VERSION = 0.2;
 our $DEBUG = 0;
 
 =head1 NAME
@@ -17,7 +17,7 @@ these per translation that can be returned.
 
 =head1 API
 
-The following functions are available:
+The following methods are available:
 
 =cut
 
@@ -27,7 +27,7 @@ use utf8;
 use Data::Dumper;
 use base qw();
 use Locale::MakePhrase::Utils qw(die_from_caller);
-$Data::Dumper::Indent = 1 if $DEBUG;
+local $Data::Dumper::Indent = 1 if $DEBUG;
 
 #--------------------------------------------------------------------------
 
@@ -104,7 +104,7 @@ sub new {
   die_from_caller("Missing language for this rule") unless $self->{language};
   $self->{expression} = "" unless $self->{expression};
   $self->{priority} = 0 unless $self->{priority};
-  die_from_caller("Missing translation for this rule") unless $self->{translation};
+  die_from_caller("Missing translation for this rule") unless (defined $self->{translation});
 
   # lc and change - to _
   $self->{language} =~ tr<-A-Z><_a-z>;

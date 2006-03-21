@@ -8,6 +8,7 @@ use vars qw(@MODULES);
 BEGIN {
   @MODULES = qw(
     Locale::MakePhrase::Utils
+    Locale::MakePhrase::Numeric
     Locale::MakePhrase::RuleManager
     Locale::MakePhrase::LanguageRule
     Locale::MakePhrase::Language
@@ -30,3 +31,7 @@ foreach my $module (@MODULES) {
   ok(! $@) or print "Bail out! Cant load module: $module\n";
 }
 
+#
+# Notes:
+# - We cannot try to load Locale::MakePhrase::Print as it does some funky stuff on load.
+#

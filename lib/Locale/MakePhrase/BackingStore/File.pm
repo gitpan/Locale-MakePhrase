@@ -1,5 +1,5 @@
 package Locale::MakePhrase::BackingStore::File;
-our $VERSION = 0.1;
+our $VERSION = 0.3;
 our $DEBUG = 0;
 
 =head1 NAME
@@ -10,7 +10,7 @@ translations for all supported languages, from a single file.
 =head1 DESCRIPTION
 
 This backing store is capable of loading language rules from a
-translation file.
+single translation file.
 
 The file must be formatted as shown in the B<example.txt> file (which
 can be located in the same directories that these modules are are
@@ -31,13 +31,14 @@ broken into groups containing:
 
 Where expression & priority are optional.  However, if you specify the
 priority and/or expression, make sure the translation key is the last
-entry in the group (see L<TODO>).
+entry in the group - this is necessary, as we dont know when the
+the block is finished.
 
 =back
 
 =head1 API
 
-The following functions are implemented:
+The following methods are implemented:
 
 =cut
 
@@ -50,11 +51,11 @@ use I18N::LangTags;
 use Locale::MakePhrase::Utils qw(die_from_caller alltrim);
 our $implicit_data_structure = [ "key","language","expression","priority","translation" ];
 our $default_encoding = 'utf-8';
-$Data::Dumper::Indent = 1 if $DEBUG;
+local $Data::Dumper::Indent = 1 if $DEBUG;
 
 #--------------------------------------------------------------------------
 
-=head2 $self init([...])
+=head2 $self new([...])
 
 We support loading text/translations (from the translation file) which
 may be encoded using any character encoding.  Since we need to know
@@ -69,6 +70,8 @@ The full path to the file containing the translations. eg:
 
   /usr/local/myapp/translations.mpt
 
+Default: none; you must specify a filename
+
 =item C<encoding>
 
 We can load translations from any enocding supported by the L<Encode>
@@ -77,7 +80,7 @@ the specified encoding, into the interal encoding of UTF-8.
 
 Default: load UTF-8 encoded text translations.
 
-=item C<dont_reload>
+=item C<reload>
 
 It is handy for the language module to be able to dynamically reload
 its known translations, if the file gets updated.  You can set this
@@ -89,31 +92,36 @@ Default: reload if file changes
 
 =cut
 
-sub init {
-  my $self = shift;
+sub new {
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = bless {}, $class;
 
   # get options
   my %options;
   if (@_ > 1 and not(@_ % 2)) {
     %options = @_;
-  } elsif (ref($_[0]) eq 'HASH') {
+  } elsif (@_ == 1 and ref($_[0]) eq 'HASH') {
     %options = %{$_[0]};
   } elsif (@_ == 1) {
     $options{file} = shift;
-  } else {
-    die_from_caller("Invalid arguments passed to new()");
   }
   print STDERR "Arguments to ". ref($self) .": ". Dumper(\%options) if $DEBUG > 5;
-  die_from_caller("Missing 'file' argument") unless $options{file};
-  $self->{file} = $options{file};
+
+  # allow sub-class to control construction
+  $self = $self->init();
+  return undef unless $self;
+
+  $self->{file} = (exists $options{file}) ? $options{file} : $self->{file};
+  $self->{encoding} = (exists $options{encoding}) ? $options{encoding} : (exists $self->{encoding}) ? $self->{encoding} : $default_encoding;
+  $self->{reload} = (exists $options{reload}) ? ($options{reload} ? 1 : 0) : (exists $self->{reload}) ? ($self->{reload} ? 1 : 0) : 1;
   $self->{rules} = {};
   $self->{mtime} = 0;
-  $self->{encoding} = $default_encoding;
-  $self->{encoding} = $options{encoding} if (exists $options{encoding});
-  $self->{dont_reload} = $options{dont_reload} ? 1 : 0;
 
   # make sure file exists
-  die_from_caller("No such file:",$self->{file}) unless (-e $self->{file});
+  die_from_caller("Missing 'file' definition") unless (defined $self->{file});
+  die_from_caller("No such translation file:",$self->{file}) unless (-e $self->{file});
+  die_from_caller("Invalid encoding specified") unless $self->{encoding};
 
   # Pre-load all available languages
   $self->_load_file();
@@ -141,7 +149,6 @@ sub get_rules {
   # look for rules for each language in the current key
   my @langs;
   my $rules = $self->{rules};
-print Dumper($rules);
   foreach my $language (@$languages) {
     next unless (exists $rules->{$language});
     push @langs, $rules->{$language};
@@ -182,6 +189,13 @@ print Dumper($rules);
 }
 
 #--------------------------------------------------------------------------
+# The following methods are not part of the API - they are private.
+#
+# This means that everything above this code-break is allowed/designed
+# to be overloaded.
+#--------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------
 #
 # If the file hasn't yet been loaded or its mtime has changed, load it into the cache.
 #
@@ -204,10 +218,12 @@ sub _load_file {
   my $in_group = 0;
   my $line = 0;
   my $encoding = $self->{encoding};
-  open (FH, "<:encoding($encoding)", "$file") || die_from_caller("Failed to open translation file:",$file);
+  my $fh;
+  open ($fh, "<:encoding($encoding)", "$file") || die_from_caller("Failed to open translation file:",$file);
 
-  while (<FH>) {
+  while (<$fh>) {
     chomp;
+    s///;
     $line++;
     $_ = alltrim($_);
     next if (not defined or length == 0 or /^#/);
@@ -228,6 +244,7 @@ sub _load_file {
       $in_group++;
       $key = $rhs;
       die_from_caller("Key must have some length, file '$file' line '$line'") unless (length $key);
+#      $line += _read_lines($fh,\$key);
       next;
     } elsif ($lhs eq 'language' and not defined $language) {
       $language = $rhs;
@@ -243,6 +260,7 @@ sub _load_file {
     } elsif ($lhs eq 'translation' and not defined $translation) {
       $translation = $rhs;
       die_from_caller("Translation must have some length, file '$file' line '$line'") unless (length $translation);
+#      $line += _read_lines($fh,\$translation);
     } elsif ($lhs eq 'context' and not defined $context) {
       $context = $rhs;
     } else {
@@ -282,18 +300,50 @@ sub _load_file {
     $key = $language = $expression = $priority = $translation = $context = undef;
   }
 
-  close FH;
+  close $fh;
   $self->{rules} = $rules;
+  print STDERR "Loaded the following languages rules:\n", Dumper($rules) if $DEBUG > 7;
+}
+
+#--------------------------------------------------------------------------
+#
+# Helper routine for reading multiple lines for a given key
+#
+sub _read_lines {
+  my ($fh,$s_ref);
+  my $line = 0;
+  if ($$s_ref =~ /\/$/) {
+    while (<$fh>) {
+      chomp;
+      s/^M$//;
+      $line++;
+      $_ = alltrim($_);
+      if (/\.\s*\\$/) {
+        $$s_ref =~ s/\s*\/$/\n/;
+      } else {
+        $$s_ref =~ s/\s*\/$/ /;
+      }
+      $$s_ref .= $_;
+      last unless ($$s_ref =~ /\/$/);
+    }
+  }
+  return $line;
 }
 
 1;
 __END__
 #--------------------------------------------------------------------------
 
-=head1 TODO
+=head1 NOTES
 
-Need to re-implement file parser to allow the syntax of the file to be a
-little more flexible / user-friendly.
+=head2 line-ending
+
+We automatically handle the Unix/MS-DOS line-ending difference.
+
+=head2 multi-line
+
+Strings can be spanned over multiple lines, if the end of the line is
+backslash-escaped.
 
 =cut
 

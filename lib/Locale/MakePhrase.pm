@@ -1,5 +1,5 @@
 package Locale::MakePhrase;
-our $VERSION = 0.2;
+our $VERSION = 0.4;
 our $DEBUG = 0;
 
 =head1 NAME
@@ -24,8 +24,8 @@ Example:
     backing_store => $bs,
   );
   ...
-  my $file_count = 1;
-  print $mp->translate("Please select [_1] colors.",$file_count);
+  my $color_count = 1;
+  print $mp->translate("Please select [_1] colors.",$color_count);
 
 Output:
 
@@ -88,30 +88,30 @@ reason for building a new module is because:
 
 =over 2
 
-=item -
+=item *
 
 We wanted to completely abstract the language rule capability, to be
 programming language agnostic so that we could re-implement this
 module in other programming languages.
 
-=item -
+=item *
 
 We needed run-time evaluation of the rules, since the translations
 may be updated at any time; new rules may be added whenever there is
 some ambigutiy in the existing phrase.  Also, we didn't want to
 re-start the application whenever we updated a rule.
 
-=item -
+=item *
 
 We would like to support various types of storage mechanisms for the
 translations.  The origonal design constraint prefered the use of a
 PostgreSQL database to hold the translations - most existing language
 translation systems use flat files.
 
-=item -
+=item *
 
 We want to store/manipulate the current text phrase, only encoded in
-UTF-8 (ie we dont want to store the text in a locale-specific
+UTF-8 (ie: we dont want to store the text in a locale-specific
 encoding).  This allows us to output text to any other character set.
 
 =back
@@ -120,21 +120,21 @@ As an example of application usage, it is possible for a Hebrew
 speaking user to be logged into a web-form which contains Japanese
 data. As such they will see:
 
-=over 3
+=over 2
 
-=item a)
+=item *
 
-Menus and tooltips will be translated into the users' language (ie Hebrew).
+Menus and tooltips will be translated into the users' language (ie: Hebrew).
 
-=item b)
+=item *
 
-Titles will be in the language of the dataset (ie Japanese).
+Titles will be in the language of the dataset (ie: Japanese).
 
-=item c)
+=item *
 
-Some of the data was in Latin character set (ie English).
+Some of the data was in Latin character set (ie: English).
 
-=item d)
+=item *
 
 If the user prefered to see the page as RTL rather than LTR, the page
 was altered to reflect this preference.
@@ -147,9 +147,9 @@ When implementing any new software, it is necessary to understand
 the problem domain.  In the case of language translation, there
 are a number of requirements that we can define:
 
-=over 3
+=over 4
 
-=item a)
+=item 1.
 
 Quite a few people speak multiple languages; we would like the
 language translation system to use the users preferred language
@@ -167,7 +167,7 @@ the language the user prefers.
 
 =back
 
-=item b)
+=item 2.
 
 Since some people speak multiple languages, the application may not
 have been localised to their prefered localisation.  We should try to
@@ -182,7 +182,7 @@ to Mexican, since Mexican and Spanish have many words in common.
 
 =back
 
-=item c)
+=item 3.
 
 Some languages support the notion of a dialect for that language.  A
 good example is that the English language is used in many
@@ -203,7 +203,7 @@ translation.
 
 =back
 
-=item d)
+=item 4.
 
 Some languages are written using a script which displays its
 output as right-to-left text (as used by Arabic, Hebrew, etc), rather
@@ -212,7 +212,7 @@ language translation mechanism should allow the text display mechanism
 to change the text direction if that is a requirement (which is
 another reason for mandating the use of UTF-8).
 
-=item e)
+=item 5.
 
 The string to be translated should support the ability to re-order
 the wording of the text.
@@ -228,7 +228,7 @@ English).
 
 =back
 
-=item f)
+=item 6.
 
 The text translation mechanism should support the ability to show
 arguments supplied to the string (by the application), within the
@@ -249,7 +249,7 @@ mnemonic, to being the first mnemonic.  The requirement is that we
 would like to be able to rearrange the order/placement of any
 mnemonic (including any program arguments).
 
-=item g)
+=item 7.
 
 We would like to be able to support an arbitrary number of argument
 replacements.  We shouldn't be limited in the number of replacements
@@ -265,7 +265,7 @@ people, ___ ..." and so on.
 
 =back
 
-=item h)
+=item 8.
 
 Most program arguments that are given to strings are in numeric
 format (i.e. they are a number).  We would also like to support
@@ -274,7 +274,7 @@ language translation (but only after rule evaluation).  The purpose
 being that the output phrase should make sense within the current
 context of the application.
 
-=item i)
+=item 9.
 
 In a lot of languages there is the concept of singular and plural.
 While in other languages there is no such concept, while in others
@@ -305,7 +305,7 @@ to apply linguistic rules to the original text, so that it can
 evaluate which piece of text should be displayed, given the current
 context and program argument.
 
-=item j)
+=item 10.
 
 When updating a specific phrase for language translation, the next
 screen re-draw should show the new translation text. Thus translations
@@ -338,7 +338,7 @@ avoids the need to translate every string when we load it.
 
 =head1 OUTPUT TEXT ENCODING
 
-L<Locale::MakePhrase> uses UTF-8 encooding internally, as described
+L<Locale::MakePhrase> uses UTF-8 encoding internally, as described
 above. This is also the default output encoding.  You can choose to
 have a different output encoding, such as ISO-8859-1.
 
@@ -348,7 +348,7 @@ text direction (ie. left-to-right or right-to-left).
 
 By supplying the encoding as a constructor argument, L<Locale::MakePhrase>
 will transpose the translated text from UTF-8, into your output-specific
-encoding (using the L<Encode> modeule).  This is useful in cases where
+encoding (using the L<Encode> module).  This is useful in cases where
 font support within an application, hasn't yet evolved to the same
 level as a language-specific font.
 
@@ -378,9 +378,9 @@ B<left(s,n)>, B<right(s,n)>, B<substr(s,n)>, B<substr(s,n,r)>
 
 =back
 
-=head1 API
+=head1 Object API
 
-The following functions part of the core L<Locale::MakePhrase> API:
+The following methods are part of the L<Locale::MakePhrase> object API:
 
 =cut
 
@@ -389,7 +389,7 @@ use strict;
 use warnings;
 use utf8;
 use integer;
-use base qw();
+use base qw(Exporter);
 use Data::Dumper;
 use I18N::LangTags 0.21 ();
 use Encode;
@@ -397,25 +397,24 @@ use Encode::Alias;
 use Locale::MakePhrase::BackingStore;
 use Locale::MakePhrase::RuleManager;
 use Locale::MakePhrase::LanguageRule;
+use Locale::MakePhrase::Numeric;
 use Locale::MakePhrase::Utils qw(is_number die_from_caller);
-use constant MALFORMED_MODE_ESCAPE => Encode::FB_PERLQQ;
-use constant MALFORMED_MODE_HTML => Encode::FB_HTMLCREF;
-use constant MALFORMED_MODE_XML => Encode::FB_XMLCREF;
-use constant NUMERIC_FORMAT_NONE => 1;
-use constant NUMERIC_FORMAT_COMMA => 2;
-use constant NUMERIC_FORMAT_DOT => 3;
 our $default_language = "en";
 our $default_backing_store = "Locale::MakePhrase::BackingStore";
 our $default_rule_manager = "Locale::MakePhrase::RuleManager";
-our $default_malformed_mode = MALFORMED_MODE_ESCAPE;
-our $default_numeric_format = NUMERIC_FORMAT_COMMA;
-our $default_panic_language_lookup = 0;
+our $default_malformed_mode = Encode::FB_PERLQQ;
+our $default_numeric_format = Locale::MakePhrase::Numeric->DOT;
 our $internal_encoding = "utf-8";
-$Data::Dumper::Indent = 1 if $DEBUG;
+our $this = undef;
+local $Data::Dumper::Indent = 1 if $DEBUG;
 
 # Exported symbols
-use vars qw(@EXPORT_OK);
-@EXPORT_OK = qw(MALFORMED_MODE_ESCAPE MALFORMED_MODE_HTML MALFORMED_MODE_XML NUMERIC_FORMAT_NONE NUMERIC_FORMAT_COMMA NUMERIC_FORMAT_DOT);
+our @EXPORT_OK = qw(mp __ print);
+
+# constants
+sub MALFORMED_MODE_ESCAPE { return Encode::FB_PERLQQ;   }
+sub MALFORMED_MODE_HTML   { return Encode::FB_HTMLCREF; }
+sub MALFORMED_MODE_XML    { return Encode::FB_XMLCREF;  }
 
 # We add the 'utf-8' alias for the 'utf8' encoding,
 # as we support both syntactical forms.
@@ -426,7 +425,7 @@ Encode::Alias::define_alias('utf-8' => 'utf8');
 =head2 new()
 
 Construct new instance of Locale::MakePhrase object.  Takes the
-following named parameters (ie via a hash or hashref):
+following named parameters (ie: via a hash or hashref):
 
 =over 2
 
@@ -446,32 +445,32 @@ L<I18N::LangTags>) of:
 
 =over 3
 
-=item 1)
+=item 1.
 
 The strings are converted to RFC3066 language tags; these become
 the primary tags.
 
-=item 2)
+=item 2.
 
 Superordinate tags are retrieved for each primary tag.
 
-=item 3)
+=item 3.
 
 Alternates of the primary tags are then retrieved.
 
-=item 4)
+=item 4.
 
 Panic language tags are retrieved for each primary tag (if enabled).
 
-=item 5)
+=item 5.
 
 The fallback language is retrieved (see 'fallback language').
 
-=item 6)
+=item 6.
 
 Duplicate language tags are removed.
 
-=item 7)
+=item 7.
 
 All tags are converted to lowercase, and '-' are changed to '_'.
 
@@ -496,7 +495,7 @@ which can be used to dynamically construct the instance.
 
 The final backing store instance must have a type of L<Locale::MakePhrase::BackingStore>.
 
-Defaults to: L<Locale::MakePhrase::BackingStore>
+Default: use a L<Locale::MakePhrase::BackingStore>
 
 =item C<rule_manager>
 
@@ -505,7 +504,7 @@ which can be used to dynamically construct the instance.
 
 The final manager instance must have a type of L<Locale::MakePhrase::RuleManager>.
 
-Defaults to: L<Locale::MakePhrase::RuleManager>
+Default: use a L<Locale::MakePhrase::RuleManager>
 
 =item C<malformed_character_mode>
 
@@ -515,48 +514,67 @@ the behaviour to output alternative character entity formats.
 
 Note that if you are using L<Locale::MakePhrase> to generate strings
 used within web pages / HTML, you should set this parameter to
-C<MALFORMED_MODE_HTML>.
+C<Locale::MakePhrase-E<gt>MALFORMED_MODE_HTML>.
 
 =item C<numeric_format>
 
-This option allows the user to control how numbers are output.  You can
-set the output to be one of three forms.  Numeric stringification can
-be set to output using one of the following formats:
+This option allows the user to control how numbers are output.  You
+can set the output to be one of a number of forms of stringification
+defined in L<Locale::MakePhrase::Numeric>, eg:
 
 =over 2
 
-=item C<NUMERIC_FORMAT_NONE>
+=item '.', ',', '(', ')'
 
-Dont do any pretty-printing of the number
-
-=item C<NUMERIC_FORMAT_COMMA>
-
-Place comma seperators before every third digit, as in: 10,000,000.0
-
-=item C<NUMERIC_FORMAT_DOT>
-
-Place dot (full-stop) seperators before every third digit, as in: 10.000.000.000,0
+Place comma seperators before every third digit; use brackets for
+negative, as in: (10,000,000.1)
 
 =back
 
-Defaults to: B<NUMERIC_FORMAT_COMMA>
+This takes either a string format or an array reference containing
+the format.
 
-=item C<die_on_bad_args>
+Default: dont format; show decimal as full-stop
 
-Set this option to true to make L<Locale::MakePhrase> die if there is
-an error in your usage of this module.
+=item C<die_on_bad_translation>
 
-Default: dont die; gracefully handle mis-use by replacing missing
-argument with an empty string.
+Set this option to true to make L<Locale::MakePhrase> die if the
+translated string is incorrectly formatted (eg: too many argument
+place holders are specified) or the expression is not valid.  The
+alternative is to output the phrase B<E<lt>INVALID TRANSLATIONE<gt>>
+or B<E<lt>INVALID EXPRESSIONE<gt>>.
 
-=item C<show_bad_args>
+Die'ing here means that translations have the ability to 
+abort your code.  If you dont have control over the quality of the
+phrases added to your dictionary, you should probably use the default
+behaviour.
 
-Set this option to true to make L<Locale::MakePhrase> show the which
-application string arguments, are not defined.  It does this by using
-the phrase B<E<lt>UNDEFINEDE<gt>>, in place of the undefined value.
+Note that an invalid expression or translation generates a warning to
+STDERR.
 
-Default: dont show undefined arguments; gracefully replaces arguments
-with an empty string
+Default: dont die; output the appropriate error phrase
+
+=item C<translate_arguments>
+
+Set this option to false to make L<Locale::MakePhrase> not translate
+the applied arguments, before applying them to the output of the
+engine.  This saves you from having to call translate() for each
+argument, within your own code.
+
+Default: do translate arguments
+
+=item C<add_newline>
+
+Set this option to true to make L<Locale::MakePhrase> automatically
+add newline characters to the end of every translated string.  The
+reason for having this is to allow your translation-key to not require
+the OS-dependent newline character(s), and to not require newline
+character(s) on the target-translation.
+
+Note that the API provides alternate method calls so as to allow
+you to add newline character(s) as necessary.
+
+Default: dont add any newline characters
 
 =item C<panic_language_lookup>
 
@@ -568,9 +586,9 @@ language(s), if a translation from the primary language hasn't been
 found.
 
 eg: Spanish has a similar heritage as Italian, thus if no translations
-are found in Itelian, then Spanish translations will be used.
+are found in Italian, then Spanish translations will be used.
 
-Default: donet lookup panic-languages
+Default: dont lookup panic-languages
 
 =item Notes:
 
@@ -578,7 +596,8 @@ If the arguments aren't a hash or hashref, then we assume that the
 arguments are languages tags.
 
 If you dont supply any language, the fallback language will be used.
-Default language: B<en>.
+
+Default language: B<en>
 
 =back
 
@@ -590,7 +609,7 @@ sub new {
   my $self = bless {}, $class;
 
   # We allow different forms of argument passing.
-  # The only argument we really need is the language, but we can allow other arguments as well.
+  # The only argument we really need is the language, but we should use other arguments as well.
   my %options;
   if (@_ == 1 and ref($_[0]) eq "HASH") {
     %options = %{$_[0]};
@@ -608,16 +627,18 @@ sub new {
   return undef unless $self;
 
   # process options, and initialise module
-  $self->{backing_store} = $self->_attach_backing_store();
-  $self->{rule_manager} = $self->_get_rule_manager();
-  $self->{languages} = $self->_get_languages();
   $self->{encoding} = $self->_get_encoding();
   $self->{malformed_character_mode} = $self->_get_malformed_mode();
   $self->{numeric_format} = $self->_get_numeric_format();
-  $self->{die_on_bad_args} = $options{die_on_bad_args} ? 1 : 0;
-  $self->{show_bad_args} = $options{show_bad_args} ? 1 : 0;
+  $self->{die_on_bad_translation} = (exists $options{die_on_bad_translation}) ? ($options{die_on_bad_translation} ? 1 : 0) : $self->{die_on_bad_translation} ? 1 : 0;
+  $self->{translate_arguments} = (exists $options{translate_arguments}) ? ($options{translate_arguments} ? 1 : 0) : (exists $self->{translate_arguments}) ? ($self->{translate_arguments} ? 1 : 0) : 1;
+  $self->{add_newline} = (exists $options{add_newline}) ? ($options{add_newline} ? 1 : 0) : $self->{add_newline} ? 1 : 0;
+  $self->{panic_language_lookup} = (exists $options{panic_language_lookup}) ? ($options{panic_language_lookup} ? 1 : 0) : $self->{panic_language_lookup} ? 1 : 0;
+  $self->{languages} = $self->_get_languages();
+  $self->{rule_manager} = $self->_get_rule_manager();
   $self->{language_modules} = $self->_load_language_modules();
-  $self->{panic_language_lookup} = $self->_get_panic_language_lookup();
+  $self->{backing_store} = $self->_attach_backing_store();
+  $this = $self;
 
   print STDERR "Resultant $class object: ". Dumper($self) if $DEBUG > 7;
   return $self;
@@ -642,76 +663,62 @@ sub init { shift }
 
 #--------------------------------------------------------------------------
 
-=head2 $string translate($string [, ...])
-
-This is a primary entry point; call this with your string and any
-program arguments which need to be translated.
-
-This function is a wrapper around the L</context_translate> function,
-where the context is set to undef.
-
-=cut
-
-sub translate {
-  die_from_caller("translate() requires at least one parameter") unless @_ > 1;
-  return shift->context_translate(undef,@_);
-}
-
-#--------------------------------------------------------------------------
-
 =head2 $string context_translate($context, $string [, ...])
 
-[$context is either a text string or an object reference (which then
-gets qualified into its class name).]
+[ C<$context> is either a text string or an object reference (which
+then gets stringified into its class name). ]
 
-This is a primary entry point; call this with your application context,
-your string and any program arguments which need to be translated.
+This is a primary entry point; call this with your application
+context, your string and any program arguments which need to be
+translated.  Note however that in most cases you will most likely want
+to call the L<translate|Locale::MakePhrase/translate> function
+instead; see below.
 
-In most cases the context is undef (as a result of being called via
-the L<translate> function).  However, in some cases you will find that
-you will use the same text phrase in one part of your application, as
-another part of your application, but the meaning of the phrase is
-different, due to the different application context; supplying a
-context will allow your backing store to use the extra context
-information, to return the correct language rules.
+In some cases you will find that you will use the same text phrase in
+one part of your application, in a seperate part of your application,
+but the meaning of the phrase is different (due to the different
+application context); supplying a context will allow your backing
+store to use the extra context information, to return the correct
+language rules.
 
 The steps involved in a string translation are:
 
 =over 3
 
-=item 1)
+=item 1.
 
 Fetch all possible translation rules for all language tags (including
 alternates and the fallbacks), from the backing store.  The store will
 return a list reference of LanguageRule objects.
 
-=item 2)
+=item 2.
 
 Sort the list based on the implementation defined in the
 L<Locale::MakePhrase::RuleManager> module.
 
-=item 3)
+=item 3.
 
 The the rule instance for which the rule-expression evaluates to B<true>
 for the supplied program arguments (if there is no expression, the rule
 is always true).
 
-=item 4)
+=item 4.
 
 If no rules have been selected, then make a rule from the input string.
 
-=item 5)
+=item 5.
 
 Apply the program arguments to the rules' translated text.  If the
-argument is a text phrase, it undergoes the language translation
-procedure.  If the argument is numeric, it is formated by the
-C<format_numeric> method.
+argument is a text phrase, it (optionally) undergoes the language
+translation procedure.  If the argument is numeric, it is formatted by
+one of your language sub-classes, or the L<Locale::MakePhrase::Numeric>
+module.
 
-=item 6)
+=item 6.
 
 We apply the output character set encoding to convert the text from
-UTF-8 into the prefered character set.  (This does nothing if the
-output encoding is UTF-8.)
+UTF-8 into the prefered character set.  If the output encoding is UTF-8
+(thus matching the internal encoding), this item does nothing.
 
 =back
 
@@ -754,98 +761,113 @@ sub context_translate {
   $translated_text = $self->_apply_encoding($translated_text);
 
   print STDERR "Translated text: $translated_text\n" if $DEBUG;
+  return $translated_text.$\ if $self->{add_newline};
   return $translated_text;
 }
 
 #--------------------------------------------------------------------------
 
-=head2 $string format_number($number)
+=head2 $string translate($string [, ...])
 
-This method implements the numbers-specific formatting.  The default
-implementation will stringify the number (which usually means that we
-put a comma seperator) by delegating the call to the C<stringify_number>
-method.
+This is a primary entry point; call this with your string and any
+program arguments which need to be translated.
+
+This function is a wrapper around the C<context_translate> function,
+where the context is set to undef (which is usually what you want).
+
+=cut
+
+sub translate {
+  die_from_caller("translate() requires at least one parameter") unless @_ > 1;
+  return shift->context_translate(undef,@_);
+}
+
+#--------------------------------------------------------------------------
+
+=head2 $string context_translate_ln($context, $string [, ...])
+
+This is a primary entry point; call this with your context, string and
+any program arguments which need to be translated.
+
+This function is a wrapper around the C<context_translate> function,
+but this adds newline character(s) to the output.
+
+=cut
+
+sub context_translate_ln {
+  die_from_caller("translate() requires at least two parameters") unless @_ > 2;
+  my $s = shift->context_translate(@_);
+  return $s.$\;
+}
+
+#--------------------------------------------------------------------------
+
+=head2 $string translate_ln($string [, ...])
+
+This is a primary entry point; call this with your string and any
+program arguments which need to be translated.
+
+As above, this function is a wrapper around the C<context_translate>
+function, where the context is set to undef, but this adds newline
+character(s) to the output.
+
+=cut
+
+sub translate_ln {
+  die_from_caller("translate() requires at least one parameter") unless @_ > 1;
+  my $s = shift->context_translate(undef,@_);
+  return $s.$\;
+}
+
+#--------------------------------------------------------------------------
+
+=head2 $string format_number($number,$options)
+
+This method implements the numbers-specific formatting, by calling into
+L<Locale::MakePhrase::Numeric>'s C<stringify_number> method.
 
 To provide custom handling of number formatting, you can do one of:
 
-=over 3
+=over 2
 
-=item a)
+=item *
+
+Define a L<Locale::MakePhrase::Numeric> number formatting option.
+
+=item *
 
 Implement 'per-language' number formatting, by sub-classing the
 L<Locale::MakePhrase::Language> module, then implementing a
 C<format_number> method.
-
-=item b)
-
-Sub-class L<Locale::MakePhrase>, then overload the C<format_number>
-method.
-
-=item c)
-
-Set the available L<Locale::MakePhrase> number formatting options;
-these options affect the C<stringify_number> method.
 
 =back
 
 =cut
 
 sub format_number {
-  my ($self, $num) = @_;
+  my ($self, $number, $options) = @_;
+  $options = {} unless $options;
 
-  # Allow the custom language-handling module a chance at formatting the number
   if (ref($self)) {
-    my $modules = $self->{language_modules};
-    my $can;
-    foreach my $module (@$modules) {
-      $can = $module->can('format_number');
-      if ($can) {
-        print STDERR "Found language specific number formatter on module: ". ref($module) ."\n" if $DEBUG > 1;
-        return &$can($module,$num);
+    unless (exists $options->{numeric_format}) {
+      if ($self->{numeric_format}) {
+        $options->{numeric_format} = $self->{numeric_format};
+      } else {
+        $options->{numeric_format} = Locale::MakePhrase::Numeric->DOT;
       }
+    }
+
+    # Allow the custom language-handling module a chance at formatting the number
+    my $modules = $self->{language_modules};
+    foreach my $module (@$modules) {
+      my $can = $module->can('format_number');
+      next unless $can;
+      print STDERR "Found language specific number formatter on module: ". ref($module) ."\n" if $DEBUG > 3;
+      return &$can($self,$number,$options);
     }
   }
 
-  return $self->stringify_number($num);
-}
-
-#--------------------------------------------------------------------------
-
-=head2 $string stringify_number($number)
-
-This method implements the stringification of number to a suitable
-output format (as defined by the C<numeric_format> constructor
-argument).
-
-When sub-classing L<Locale::MakePhrase>, by overloading this method
-you can implement custom numeric stringification.
-
-=cut
-
-sub stringify_number {
-  no integer;
-  my ($self,$num) = @_;
-
-  # Don't let the %G of sprintf, turn ten million (or bigger) into 1E+007
-  if($num < 10_000_000_000 and $num > -10_000_000_000 and $num == int($num)) {
-    $num += 0;  # Just use normal integer stringification.
-  } else {
-    $num = CORE::sprintf("%G", $num);
-  }
-
-  # We optionally apply numeric formatting (ie put comma's into big numbers)
-  if (ref($self) and $self->{numeric_format} != NUMERIC_FORMAT_NONE) {
-
-    # The initial \d+ gobbles as many digits as it can, and then we
-    # backtrack so it un-eats the rightmost three, and then we
-    # insert the comma there.
-    while( $num =~ s/^([-+]?\d+)(\d{3})/$1,$2/s ) {1}
-
-    # Convert comma's into dots (and vice versa)
-    $num =~ tr<.,><,.> if ($self->{numeric_format} == NUMERIC_FORMAT_DOT);
-  }
-
-  return $num;
+  return Locale::MakePhrase::Numeric->stringify($number,$options);
 }
 
 #--------------------------------------------------------------------------
@@ -867,7 +889,7 @@ Language to fallback to, if all others fail (this defaults to 'B<en>').
 You can override this method in a sub-class.
 
 Usually this will be the language that you are writing your application
-code (eg you may be coding using German rather than English).
+code (eg: you may be coding using German rather than English).
 
 Note that this must return a RFC-3066 compliant language tag.
 
@@ -911,25 +933,24 @@ sub language_classes {
 
 #--------------------------------------------------------------------------
 
-=head2 $format numeric_format(<$format>)
+=head2 $format numeric_format($format)
 
 This method allows you to set and/or get the format that is being used
-for numeric formatting.
+for numeric formatting.  You can supply an array, an array ref, or a string.
 
 =cut
 
-sub numeric_format             {
-  if (@_ > 1) {
-    if ($_[1] == NUMERIC_FORMAT_NONE or
-        $_[1] == NUMERIC_FORMAT_COMMA or
-        $_[1] == NUMERIC_FORMAT_DOT) {
-      $_[0]->{numeric_format} = $_[1];
-    } else {
-      die_from_caller("Invalid numeric format: " . $_[1]);
-    }
+sub numeric_format {
+  my $self = shift;
+  if (@_) {
+    my $mode;
+    if (@_ > 1) { @$mode = @_; } else { ($mode) = @_; }
+    my $options = { numeric_format => $mode };
+    $self->{numeric_format} = $self->_get_numeric_format($options);
   }
-  shift->{numeric_format};
+  return $self->{numeric_format} ? $self->{numeric_format} : Locale::MakePhrase::Numeric->DOT;
 }
+
 #--------------------------------------------------------------------------
 
 =head2 Accessor methods
@@ -964,15 +985,19 @@ Returns the output character set encoding.
 
 Returns the current UTF-8 malformed character output mode.
 
-=item $bool B<die_on_bad_args()>
+=item $bool B<die_on_bad_translation()>
 
-Returns the current state of 'L<die_on_bad_args|Locale::MakePhrase/die_on_bad_args>'.
+Returns the current state of 'L<die_on_bad_translation|Locale::MakePhrase/die_on_bad_translation>'.
 
-=item $bool B<show_bad_args()>
+=item $bool B<translate_arguments()>
 
-Returns the current state of 'L<show_bad_args|Locale::MakePhrase/show_bad_args>'.
+Returns the current state of 'L<translate_arguments|Locale::MakePhrase/translate_arguments>'.
 
-=item $bool b<panic_language_lookup()>
+=item $bool B<add_newline()>
+
+Returns the current state of 'L<add_newline|Locale::MakePhrase/add_newline>'.
+
+=item $bool B<panic_language_lookup()>
 
 Returns the current state of 'L<panic_language_lookup|Locale::MakePhrase/panic_language_lookup>'.
 
@@ -987,9 +1012,80 @@ sub backing_store              { shift->{backing_store}              }
 sub rule_manager               { shift->{rule_manager}               }
 sub encoding                   { shift->{encoding}                   }
 sub malformed_character_mode   { shift->{malformed_character_mode}   }
-sub die_on_bad_args            { shift->{die_on_bad_args}            }
-sub show_bad_args              { shift->{show_bad_args}              }
+sub die_on_bad_translation     { shift->{die_on_bad_translation}     }
+sub translate_arguments        { shift->{translate_arguments}        }
+sub add_newline                { shift->{add_newline}                }
 sub panic_language_lookup      { shift->{panic_language_lookup}      }
+
+#--------------------------------------------------------------------------
+
+=head1 Function API
+
+The following items are helper functions, which can be used to
+simplify the usage of L<Locale::MakePhrase> objects.
+
+=cut
+
+#--------------------------------------------------------------------------
+
+=head2 $string mp($string [, ...])
+
+This is a helper function to the translate() function call.  It will
+use the last-constructed instance of L<Locale::MakePhrase> to invoke
+the translate function on. eg:
+
+  print mp("This is test no: [_1]",$test_no);
+
+could produce:
+
+  This is the first test.
+
+=cut
+
+sub mp {
+  local $Locale::MakePhrase::Utils::DIE_FROM_CALLER = 1;
+  die_from_caller("You must construct at least one Locale::MakePhrase object, before using this function.") unless $this;
+  die_from_caller("mp() requires at least one parameter") unless @_ > 0;
+  return $this->context_translate(undef,@_);
+}
+
+#--------------------------------------------------------------------------
+
+=head2 $string __ $string [, ...]
+
+This function is the same as the previous helper function, except that
+it makes you code easier to read and easier to write. eg:
+
+  print __"This is test no: [_1]",$test_no;
+
+could produce:
+
+  This is test no: 4
+
+Note that we use double-underscore as this makes search-n-replace tasks
+easier than if we used a single-underscore.
+
+=cut
+
+sub __ {
+  local $Locale::MakePhrase::Utils::DIE_FROM_CALLER = 1;
+  die_from_caller("You must construct at least one Locale::MakePhrase object, before using this function.") unless $this;
+  die_from_caller("__() requires at least one parameter") unless @_ > 0;
+  return $this->context_translate(undef,@_);
+}
+
+=cut
+
+#--------------------------------------------------------------------------
+
+=head2 NOTE
+
+The previous functions use a reference to an internal variable.  If
+you are using this module from within Apache (say under mod_perl),
+make sure that you construct a new instance of a L<Locale::MakePhrase>
+object, in the child Apache processes.
+
+=cut
 
 #--------------------------------------------------------------------------
 # The following methods are not part of the API - they are private.
@@ -1008,11 +1104,15 @@ sub panic_language_lookup      { shift->{panic_language_lookup}      }
 sub _attach_backing_store {
   my ($self) = @_;
   my $options = $self->{options};
-  my $backing_store = $options->{backing_store};
+  my $backing_store;
   my $store;
 
   # use default backing store if none defined
-  unless ($backing_store) {
+  if (exists $options->{backing_store}) {
+    $backing_store = $options->{backing_store};
+  } elsif (exists $options->{backing_store}) {
+    $backing_store = $self->{backing_store};
+  } else {
     $backing_store = $self->fallback_backing_store;
     die_from_caller("Failed to locate a default backing store") unless $backing_store;
     print STDERR "Using fallback backing store ($backing_store)\n" if $DEBUG > 1;
@@ -1034,7 +1134,7 @@ sub _attach_backing_store {
   } else {
     $store = $backing_store;
   }
-  $options->{backing_store} = ref($store);
+  $options->{backing_store} = ref($store) if (exists $options->{backing_store});
 
   ## make sure backing store ISA Locale::MakePhrase::BackingStore object
   die_from_caller("Backing store is not of type Local::MakePhrase::BackingStore")
@@ -1053,11 +1153,15 @@ sub _attach_backing_store {
 sub _get_rule_manager {
   my ($self) = @_;
   my $options = $self->{options};
-  my $rule_manager = $options->{rule_manager};
+  my $rule_manager;
   my $manager;
 
   # use default manager if none defined
-  unless ($rule_manager) {
+  if (exists $options->{rule_manager}) {
+    $rule_manager = $options->{rule_manager};
+  } elsif (exists $self->{rule_manager}) {
+    $rule_manager = $self->{rule_manager};
+  } else {
     print STDERR "Using default rule_manager ($default_rule_manager)\n" if $DEBUG > 1;
     $rule_manager = $default_rule_manager;
   }
@@ -1077,7 +1181,7 @@ sub _get_rule_manager {
   } else {
     $manager = $rule_manager;
   }
-  $options->{rule_manager} = ref($manager);
+  $options->{rule_manager} = ref($manager) if (exists $options->{rule_manager});
 
   # make sure rule_manager ISA Locale::MakePhrase::RuleManager object
   die_from_caller("Rule manager is not of type Locale::MakePhrase::RuleManager")
@@ -1126,7 +1230,13 @@ sub _get_languages {
     @languages = @{$options->{languages}};
   } elsif (exists $options->{languages}) {
     @languages = split(',',$options->{languages});
-  } 
+  } elsif (exists $self->{language}) {
+    push @languages, $self->{language};
+  } elsif (exists $self->{languages} && ref($self->{languages}) eq "ARRAY") {
+    @languages = @{$self->{languages}};
+  } elsif (exists $self->{languages}) {
+    @languages = split(',',$self->{languages});
+  }
 
   # Lookup real language/dialect definitions, from supplied language
   @languages = map I18N::LangTags::locale2language_tag($_), @languages;
@@ -1136,7 +1246,7 @@ sub _get_languages {
   @languages =  map { $_, I18N::LangTags::alternate_language_tags($_) } @languages;
 
   # get at least an approximate language
-  if ($options->{panic_language_lookup}) {
+  if ($self->{panic_language_lookup}) {
     push @languages, I18N::LangTags::panic_languages(@languages);
   }
 
@@ -1175,63 +1285,72 @@ sub _get_languages {
 #--------------------------------------------------------------------------
 #
 # If the user specified a charset (and its not UTF-8), we want to be
-# able to encode the # output translation into that charset, before
-# returning.  Here we simply capture that info.
+# able to encode the output translation into that charset/encoding,
+# before returning.  Here we simply capture that info.
 #
 sub _get_encoding {
   my ($self) = @_;
   my $options = $self->{options};
   my $encoding = $internal_encoding;
-  if ($options->{charset}) {
+  if (exists $options->{charset}) {
     $encoding = $options->{charset};
-  } elsif ($options->{encoding}) {
+  } elsif (exists $options->{encoding}) {
     $encoding = $options->{encoding};
+  } elsif (exists $self->{charset}) {
+    $encoding = $self->{charset};
+  } elsif (exists $self->{encoding}) {
+    $encoding = $self->{encoding};
   }
+  die_from_caller("Invalid encoding specified") unless $encoding;
   $encoding =~ tr<_A-Z><-a-z>; # lc, and turn _ to -
   return $encoding;
 }
 
 #--------------------------------------------------------------------------
 #
-# Figure out what encoding mode we want.
+# Figure out what to do when there is a malformed character in the string,
+# when transcoding from UTF-8 to another charset/encoding.
 #
 sub _get_malformed_mode {
   my ($self) = @_;
   my $options = $self->{options};
   my $mode = $default_malformed_mode;
-  if ($options->{malformed_character_mode}) {
-    if ($options->{malformed_character_mode} == MALFORMED_MODE_ESCAPE) {
-      $mode = MALFORMED_MODE_ESCAPE;
-    } elsif ($options->{malformed_character_mode} == MALFORMED_MODE_HTML) {
-      $mode = MALFORMED_MODE_HTML;
-    } elsif ($options->{malformed_character_mode} == MALFORMED_MODE_XML) {
-      $mode = MALFORMED_MODE_XML;
-    } else {
-      die_from_caller("Unknown malformed-character mode: " . $options->{malformed_character_mode});
-    }
+  if (exists $options->{malformed_character_mode}) {
+    $mode = $options->{malformed_character_mode};
+  } elsif (exists $self->{malformed_character_mode}) {
+    $mode = $self->{malformed_character_mode};
+  }
+  if (!defined $mode or ($mode != MALFORMED_MODE_ESCAPE and $mode != MALFORMED_MODE_HTML and $mode != MALFORMED_MODE_XML)) {
+    die_from_caller("Unknown malformed-character mode:",$mode);
   }
   return $mode;
 }
 
 #--------------------------------------------------------------------------
 #
-# Figure out what nmeric formatting we want
+# Figure out what numeric formatting we want
 #
 sub _get_numeric_format {
-  my ($self) = @_;
-  my $options = $self->{options};
+  my ($self,$options) = @_;
+  $options = $self->{options} unless $options;
   my $mode = $default_numeric_format;
-  if ($options->{numeric_format}) {
-    if ($options->{numeric_format} == NUMERIC_FORMAT_NONE) {
-      $mode = NUMERIC_FORMAT_NONE;
-    } elsif ($options->{numeric_format} == NUMERIC_FORMAT_DOT) {
-      $mode = NUMERIC_FORMAT_DOT;
-    } elsif ($options->{numeric_format} == NUMERIC_FORMAT_COMMA) {
-      $mode = NUMERIC_FORMAT_COMMA;
-    } else {
-      die_from_caller("Unknown numeric-formatting mode: " . $options->{numeric_format});
-    }
+  if (exists $options->{numeric_format}) {
+    $mode = $options->{numeric_format};
+  } elsif (exists $self->{numeric_format} and defined $self->{numeric_format}) {
+    $mode = $self->{numeric_format};
   }
+  $mode = [] unless (defined $mode);
+  @$mode = split('',$mode) if (ref($mode) eq '');
+  die_from_caller("Unknown numeric formatting mode") unless (ref($mode) eq 'ARRAY');
+  $mode->[0] = '.' if (@$mode == 0);
+  $mode->[1] = '' if (@$mode == 1);
+  $mode->[2] = '-' if (@$mode == 2);
+  $mode->[3] = '' if (@$mode == 3);
+  die_from_caller("Unknown numeric-formatting mode:",join(',',@$mode)) unless (@$mode == 4);
+  for (0..scalar(@$mode)-1) {
+    die_from_caller("Undefined numeric format in placeholder: $_") unless (defined $mode->[$_]);
+  }
+  $mode = undef if (join(',',$mode) eq join(',',Locale::MakePhrase::Numeric->DOT));
   return $mode;
 }
 
@@ -1277,24 +1396,6 @@ sub _load_language_modules {
 
 #--------------------------------------------------------------------------
 #
-# If the user wants to enable 'panic language' support, allow it...
-#
-sub _get_panic_language_lookup {
-  my ($self) = @_;
-  my $options = $self->{options};
-  my $mode = $default_panic_language_lookup;
-  if ($options->{panic_language_lookup}) {
-    if ($options->{panic_language_lookup} == 0 or $options->{panic_language_lookup} == 1) {
-      $mode = $options->{panic_language_lookup};
-    } else {
-      die_from_caller("Unknown value for lookup of panic-languages: " . $options->{panic_language_lookup});
-    }
-  }
-  return $mode;
-}
-
-#--------------------------------------------------------------------------
-#
 # Take the list of all rules, then sort them by language, then by priority,
 # then by non-specified rule/language
 #
@@ -1320,7 +1421,14 @@ sub _select_rule {
   # run manager on the translation rules
   foreach my $r_obj (@$rule_objs) {
     my $expression = $r_obj->expression;
-    return $r_obj if (length $expression == 0 or $manager->evaluate($expression,@args));
+    return $r_obj unless (length $expression);
+    my $result = eval { $manager->evaluate($expression,@args); };
+    if ($@) {
+      die $@ if $self->{die_on_bad_translation};
+      print STDERR $@;
+      next;
+    }
+    return $r_obj if $result;
   }
 
   # no rule matched
@@ -1345,8 +1453,9 @@ sub _apply_arguments {
 sub _apply_encoding {
   my ($self,$text) = @_;
   return $text if ($self->{encoding} eq $internal_encoding);
-  my $encoded = Encode::decode($self->{encoding}, $text, $self->{malformed_character_mode});
-  return $encoded;
+  $text = encode("UTF8", $text, $self->{malformed_character_mode});
+  from_to($text, "UTF8", $self->{encoding});
+  return $text;
 }
 
 #--------------------------------------------------------------------------
@@ -1357,30 +1466,24 @@ sub _apply_encoding {
 # We want to do this so as to allow functionality such as:
 #    $mp->y_or_n( get_user_input() );
 #
-# If that doesn't work, try calling ourself as we may have been subclassed, or
-# the method had be bound at run-time.
-#
 sub AUTOLOAD {
-  my $self = shift;
   my $func = our $AUTOLOAD;
   $func =~ s/^.*:://;
+  my $self = $this;
+  $self = shift unless ($func eq 'mp' or $func eq '_');
   my $language_modules = $self->{language_modules};
-  my $can;
 
   # See if the language-specific module contains this function name, and if so, run it
   foreach my $module (@$language_modules) {
     print STDERR "Trying to find function \"$func\" on module: ". ref($module) ."\n" if $DEBUG > 1;
-    $can = $module->can($func);
-    return &$can($module,@_) if ($can);
+    my $can = $module->can($func);
+    next unless $can;
+    return &$can($module,@_);
   }
-
-  # try ourself...
-  $can = $self->can($func);
-  return &$can($self,@_) if ($can);
 
   # generate error from caller perspective, if we couldn't execute the function
   my $languages = $self->{languages};
-  die_from_caller("No function \"$func\" found for languages:", join(',',@$languages), "\nor for myself:", ref($self));
+  die_from_caller("No function \"$func\" found for languages:", join(',',@$languages));
 }
 
 #--------------------------------------------------------------------------
@@ -1411,21 +1514,21 @@ control construction any of these modules:
 
 =over 3
 
-=item a)
+=item 1.
 
 Overload the C<new()> method
 
 =over 2
 
-=item -
+=item *
 
 Implement the C<new()> method in your sub-class
 
-=item -
+=item *
 
 call C<SUPER::new()> so as to execute the parent class constructor
 
-=item -
+=item *
 
 re-bless the returned object
 
@@ -1442,17 +1545,17 @@ For example:
     return $self;
   }
 
-=item b)
+=item 2.
 
 Overload the C<init()> method.
 
 =over 2
 
-=item -
+=item *
 
 implement the C<init()> method in your sub-class
 
-=item -
+=item *
 
 return a reference to the current object.
 
@@ -1475,29 +1578,25 @@ overloaded:
 
 =over 2
 
-=item -
+=item *
 
 init()
 
-=item -
+=item *
 
 fallback_backing_store()
 
-=item -
+=item *
 
 fallback_language()
 
-=item -
+=item *
 
 language_classes()
 
-=item -
+=item *
 
 format_number()
-
-=item -
-
-stringify_number()
 
 =back
 
@@ -1540,11 +1639,11 @@ In some languages there may be a requirement that we layout the
 application interface, using a different layout scheme than what would
 normally be available.  This requirement is known as layout
 localisation.  An example might be, Chinese text should prefer to
-layout top-to-bottom then left-to-right, (rather than left-to-right
-then top-to-bottom).
+layout top-to-bottom left-to-right, (rather than left-to-right
+top-to-bottom).
 
 This module doesn't provide this facility, as that is up to the
-application layout mechanism to take into differences in layout.  eg:
+application layout mechanism to handle the differences in layout.  eg:
 A web-browser uses HTML as a formatting language; web-browsers do not
 implement top-to-bottom text layout.
 
@@ -1573,6 +1672,10 @@ there is POD documentation for each module. Refer to:
 
 =item .  L<Locale::MakePhrase::Utils>
 
+=item .  L<Locale::MakePhrase::Numeric>
+
+=item .  L<Locale::MakePhrase::Print>
+
 =back
 
 It also uses the following modules internally:
@@ -1595,7 +1698,8 @@ L<Locale::Maketext> module.
 =head2 Multiple levels of quoting
 
 The rule expression parser cannot handle multiple levels of quoting.
-It needs modification to support this.
+It needs modification to support this (however, this may make the
+parser slower).
 
 =head2 Expression parsing failure
 
@@ -1617,14 +1721,12 @@ better way would be to add native support for gender.
 
 =head1 CREDITES
 
-This module was written for RedSheriff Limited; they paid for my time
-to develop this module.
+This module was written for NetRatings, Inc.; they paid for part of
+my time to develop this module.
 
 Various suggestions and bug fixes were also provided by:
 
-=over 2
-
-=over 2
+=over 4
 
 =item Brendon Oliver
 
@@ -1632,17 +1734,15 @@ Various suggestions and bug fixes were also provided by:
 
 =back
 
-=back
-
 =head1 LICENSE
 
 This module was written by Mathew Robertson L<mailto:mathew@users.sf.net>
-for RedSheriff Limited L<http://www.redsheriff.com>.  Copyright (C) 2004
+for NetRatings, Inc. L<http:E<sol>E<sol>www.netratings.com>.  Copyright (C) 2006
 
 This module is free software; you can redistribute it and/or modify it
 under the terms of the GNU Lesser General Public License version 2 (or
 at your option, any later version) as published by the Free Software
-Foundation L<http://www.fsf.org>.
+Foundation L<http:E<sol>E<sol>www.fsf.org>.
 
 This module is distributed WITHOUT ANY WARRANTY WHATSOEVER, in the
 hope that it will be useful to others.

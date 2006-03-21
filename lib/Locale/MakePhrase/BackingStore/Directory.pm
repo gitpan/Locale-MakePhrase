@@ -1,11 +1,11 @@
 package Locale::MakePhrase::BackingStore::Directory;
-our $VERSION = 0.1;
+our $VERSION = 0.3;
 our $DEBUG = 0;
 
 =head1 NAME
 
 Locale::MakePhrase::BackingStore::Directory - Retrieve translations
-from files located in specified directory.
+from files located in a specified directory.
 
 =head1 DESCRTIPION
 
@@ -39,13 +39,14 @@ note are that the file is broken into groups containing:
 
 Where expression & priority are optional.  However, if you specify the
 priority and/or expression, make sure the translation key is the last
-entry in the group (see L<TODO>).
+entry in the group - this is necessary, as we dont know when the
+the block is finished.
 
 =back
 
 =head1 API
 
-The following functions are implemented:
+The following methods are implemented:
 
 =cut
 
@@ -59,11 +60,11 @@ use Locale::MakePhrase::Utils qw(alltrim die_from_caller);
 our $implicit_data_structure = [ "key","expression","priority","translation" ];
 our $language_file_extension = '.mpt';  # .mpt => 'MakePhrase Translations'
 our $default_encoding = 'utf-8';
-$Data::Dumper::Indent = 1 if $DEBUG;
+local $Data::Dumper::Indent = 1 if $DEBUG;
 
 #--------------------------------------------------------------------------
 
-=head2 $self init([...])
+=head2 $self new([...])
 
 We support loading text/translations (from the translation files) which
 may be encoded using any character encoding.  Since we need to know
@@ -78,7 +79,14 @@ The full path to the directory containing the translation files. eg:
 
   /usr/local/myapp/translations
 
-Default file extension: .mpt
+Default: none; you must specify a directory
+
+=item C<extension>
+
+You can specify a different file extension to use, rather than using
+B<.mpt>.
+
+Default: use B<.mpt> as the extension
 
 =item C<encoding>
 
@@ -88,43 +96,55 @@ the specified encoding, into the interal encoding of UTF-8.
 
 Default: load UTF-8 text translations.
 
-=item C<dont_reload>
+=item C<reload>
 
-It is handy for the language module to be able to dynamically reload
-its known translations, if the files get updated.  You can set this
-to avoid reloading the file if it changes.
+This module will dynamically reload its known translations, if the
+files get updated.  You can set this option to avoid reloading the
+file if it changes.
 
-Default: reload language file if changed
+Default: reload language files if changed
 
 =back
 
 =cut
 
-sub init {
-  my $self = shift;
+sub new {
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = bless {}, $class;
 
   # get options
   my %options;
   if (@_ > 1 and not(@_ % 2)) {
     %options = @_;
-  } elsif (ref($_[0]) eq 'HASH') {
+  } elsif (@_ == 1 and ref($_[0]) eq 'HASH') {
     %options = %{$_[0]};
   } elsif (@_ == 1) {
     $options{directory} = shift;
-  } else {
-    die_from_caller("Invalid arguments passed to new()");
   }
   print STDERR "Arguments to ". ref($self) .": ". Dumper(\%options) if $DEBUG > 5;
-  die_from_caller("Missing 'directory' argument") unless $options{directory};
-  $self->{directory} = $options{directory};
+
+  # allow sub-class to control construction
+  $self = $self->init();
+  return undef unless $self;
+
+  $self->{directory} = (exists $options{directory}) ? $options{directory} : $self->{directory};
+  $self->{extension} = (exists $options{extension}) ? $options{extension} : (exists $self->{extension}) ? $self->{extension} : $language_file_extension;
+  $self->{encoding} = (exists $options{encoding}) ? $options{encoding} : (exists $self->{encoding}) ? $self->{encoding} : $default_encoding;
+  $self->{reload} = (exists $options{reload}) ? ($options{reload} ? 1 : 0) : (exists $self->{reload}) ? ($self->{reload} ? 1 : 0) : 1;
   $self->{loaded_languages} = {};
   $self->{rules} = {};
-  $self->{encoding} = $default_encoding;
-  $self->{encoding} = $options{encoding} if (exists $options{encoding});
-  $self->{dont_reload} = $options{dont_reload} ? 1 : 0;
 
-  # make sure directory exists
+  # Error checking
+  die_from_caller("Missing 'directory' definition") unless (defined $self->{directory});
   die_from_caller("No such directory:",$self->{directory}) unless (-d $self->{directory});
+  die_from_caller("Invalid encoding specified") unless $self->{encoding};
+  die_from_caller("Invalid file extension") unless (defined $self->{extension});
+
+  # check the file extension
+  if (length $self->{extension} and substr($self->{extension},0,1) ne '.') {
+    $self->{extension} = ".".$self->{extension};
+  }
 
   # Pre-load all available languages
   $self->_load_language_files();
@@ -134,7 +154,7 @@ sub init {
 
 #--------------------------------------------------------------------------
 
-=head2 \@rule_objs get_rules($context,$key\@languages)
+=head2 \@rule_objs get_rules($context,$key,\@languages)
 
 Retrieve the translations (that have been previously loaded), using
 the selected languages.  This implementation will reload the
@@ -148,7 +168,7 @@ sub get_rules {
   my @translations;
 
   # make sure languages are loaded
-  $self->_load_languages($languages) unless $self->{dont_reload};
+  $self->_load_languages($languages) if $self->{reload};
 
   # look for rules for each language in the current key
   my @langs;
@@ -193,20 +213,28 @@ sub get_rules {
 }
 
 #--------------------------------------------------------------------------
+# The following methods are not part of the API - they are private.
 #
-# Load all the available language files (can end with extension '.mpt')
+# This means that everything above this code-break is allowed/designed
+# to be overloaded.
+#--------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------
+#
+# Load all the available language files
 #
 sub _load_language_files {
   my ($self) = @_;
   my $dir = $self->{directory};
+  my $ext = $self->{extension};
   die_from_caller("Directory is not readable:",$dir) unless (-r $dir);
   opendir(DIR, $dir) or die_from_caller("Failed to read into directory:",$dir);
   my @files = readdir(DIR);
   closedir DIR;
   foreach my $language (@files) {
-    next unless ($language =~ /$language_file_extension$/);
+    next unless ($language =~ /$ext$/);
     next unless ((-f "$dir/$language" || -l "$dir/$language") and -r "$dir/$language");
-    $language =~ s/$language_file_extension//o;
+    $language =~ s/$ext$//;
     next unless I18N::LangTags::is_language_tag($language);
     $self->_load_language($language);
   }
@@ -262,10 +290,12 @@ sub _load_language {
   my $in_group = 0;
   my $line = 0;
   my $encoding = $self->{encoding};
-  open (FH, "<:encoding($encoding)", "$file") || return;
+  my $fh;
+  open ($fh, "<:encoding($encoding)", "$file") || return;
 
-  while (<FH>) {
+  while (<$fh>) {
     chomp;
+    s/$//;
     $line++;
     $_ = alltrim($_);
     next if (not defined or length == 0 or /^#/);
@@ -282,10 +312,11 @@ sub _load_language {
 
     # process group entries
     if ($lhs eq 'key') {
-      die_from_caller("Found another group while processing previous group, file '$file' line '$line'") if ($in_group);
+      die_from_caller("Found another group while processing previous group, file '$file' line '$line'") if $in_group;
       $in_group++;
       $key = $rhs;
       die_from_caller("Key must have some length, file '$file' line '$line'") unless (length $key);
+#      $line += _read_lines($fh,\$key);
       next;
     } elsif ($lhs eq 'expression' and not defined $expression) {
       $expression = $rhs;
@@ -295,6 +326,7 @@ sub _load_language {
     } elsif ($lhs eq 'translation' and not defined $translation) {
       $translation = $rhs;
       die_from_caller("Translation must have some length, file '$file' line '$line'") unless (length $translation);
+#      $line += _read_lines($fh,\$translation);
     } elsif ($lhs eq 'context' and not defined $context) {
       $context = $rhs;
     } else {
@@ -334,7 +366,7 @@ sub _load_language {
     $key = $expression = $priority = $translation = $context = undef;
   }
 
-  close FH;
+  close $fh;
   $self->{rules}->{$language} = $rules;
 }
 
@@ -344,7 +376,7 @@ sub _load_language {
 #
 sub _get_language_filename {
   my ($self, $language) = @_;
-  my $path = $self->{directory} ."/". $language . $language_file_extension;
+  my $path = $self->{directory} ."/". $language . $self->{extension};
   if ((-f $path || -l $path) and -r $path) {
     print STDERR "Found new language file: $path" if $DEBUG > 2;
     return $path;
@@ -352,23 +384,54 @@ sub _get_language_filename {
   return undef;
 }
 
+#--------------------------------------------------------------------------
+#
+# Helper routine for reading multiple lines for a given key
+#
+sub _read_lines {
+  my ($fh,$s_ref);
+  my $line = 0;
+  if ($$s_ref =~ /\/$/) {
+    while (<$fh>) {
+      chomp;
+      s/$//;
+      $line++;
+      $_ = alltrim($_);
+      if (/\.\s*\\$/) {
+        $$s_ref =~ s/\s*\/$/\n/;
+      } else {
+        $$s_ref =~ s/\s*\/$/ /;
+      }
+      $$s_ref .= $_;
+      last unless ($$s_ref =~ /\/$/);
+    }
+  }
+  return $line;
+}
+
 1;
 __END__
 #--------------------------------------------------------------------------
 
-=head1 TODO
-
-Need to re-implement file parser to allow the syntax of the file to be a
-little more flexible / user-friendly.
-
 =head1 NOTES
+
+=head2 file extension
 
 If you find that the filename extension B<.mpt> is unsuitable, you can
 change it by setting the variable:
 
 C<$Locale::MakePhrase::BackingStore::Directory::language_file_extension>
 
-to the extension that you prefer.
+to the extension that you prefer, or simply set it in your constructor.
+
+=head2 line-ending
+
+We automatically handle the Unix/MS-DOS line-ending difference.
+
+=head2 multi-line
+
+Strings can be spanned over multiple lines, if the end of the line is
+backslash-escaped.
 
 =cut
 

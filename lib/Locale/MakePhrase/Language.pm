@@ -1,5 +1,5 @@
 package Locale::MakePhrase::Language;
-our $VERSION = 0.1;
+our $VERSION = 0.2;
 
 =head1 NAME
 
@@ -15,11 +15,11 @@ something you cant do with a language rule, such as:
 
 =over 2
 
-=item -
+=item *
 
 handling keyboard input in a language specific way
 
-=item -
+=item *
 
 display of formula's
 
@@ -27,7 +27,7 @@ display of formula's
 
 =head1 API
 
-The following functions are available:
+The following methods are available:
 
 =cut
 
@@ -75,7 +75,7 @@ sub language {
 
 =head2 boolean y_or_n($keypress)
 
-This function is simply a stub which declares the signature.  It is
+This methods is simply a stub which declares the signature.  It is
 up the language specific module to implement the correct handling
 of the keypress'ed value.
 

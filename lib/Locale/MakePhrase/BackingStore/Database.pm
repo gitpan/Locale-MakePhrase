@@ -1,38 +1,36 @@
-package Locale::MakePhrase::BackingStore::PostgreSQL;
-our $VERSION = 0.1;
+package Locale::MakePhrase::BackingStore::Database;
+our $VERSION = 0.2;
 our $DEBUG = 0;
 
 =head1 NAME
 
-Locale::MakePhrase::BackingStore::PostgreSQL - Retrieve translations
-from a table within a PostgreSQL database.
+Locale::MakePhrase::BackingStore::Database - Base-class for a
+database driven backing store.
 
 =head1 DESCRIPTION
 
 This backing store is capable of loading language rules from a
-PostgreSQL database table, which conforms to the structure defined
-below.
+database table, which conforms to the structure defined below.
 
-It assumes that the database is configured to use UNICODE as the
-text storage mechanism (ie: 'psql -l' should should you how the
-database instance was created).
+It assumes that the database is configured to use unicode as the
+text storage mechanism.
 
 Unlike the file-based implementations, this module will hit the
 database looking for language translations, every time the language
 rules are requested.  This allows you to update the database (say
-via a web interface), immediately using the new translations.
+via a web interface), so that new translations are available
+immediately.
 
 =head1 TABLE STRUCTURE
 
-The table structure can be created with the following PostgreSQL
-SQL statement:
+The table structure can be created with the following SQL statement:
 
   CREATE TABLE some_table (
-    key text,
-    language text,
-    expression text,
-    priority integer,
-    translation text
+    key VARCHAR,
+    language VARCHAR,
+    expression VARCHAR,
+    priority INTEGER,
+    translation VARCHAR
   );
 
 As you can see, there is not much to it.
@@ -43,7 +41,7 @@ it hasn't, this module will die.
 
 =head1 API
 
-The following functions are implemented:
+The following methods are implemented:
 
 =cut
 
@@ -52,21 +50,16 @@ use warnings;
 use utf8;
 use Data::Dumper;
 use DBI;
-use DBD::Pg;
 use base qw(Locale::MakePhrase::BackingStore);
 use Locale::MakePhrase::Utils qw(die_from_caller);
-our $default_connect_options = {
-  RaiseError => 1,
-  AutoCommit => 1,
-  ChopBlanks => 1,
-  pg_enable_utf8 => 1,  # assumes database is using UNICODE
-};
+our $default_host = 'localhost';
+our $default_connect_options = {};
 our $implicit_table_structure = "key,language,expression,priority,translation";
-$Data::Dumper::Indent = 1 if $DEBUG;
+local $Data::Dumper::Indent = 1 if $DEBUG;
 
 #--------------------------------------------------------------------------
 
-=head2 $self init([...])
+=head2 $self new([...])
 
 You will need to specify some of these options:
 
@@ -90,6 +83,14 @@ If you supply a database handle, you should specify whether you want
 this module to take ownership of the handle.  If so, it will disconnect
 the database handle on destruction.
 
+=item C<driver>
+
+The name of the DBI driver to use.
+
+=item C<database>
+
+The name of the database that we will connect to.
+
 =item C<host>
 
 =item C<port>
@@ -100,21 +101,15 @@ the database handle on destruction.
 
 By specifying these four options (rather than the C<dbh>), this module
 will connect to the database using these options.  Note that C<host>
-defaults to 'localhost', C<port> defaults to '5432', C<user> and
-C<password> defaults to empty (just in case you dont supply any 
-connection parameters).
+and C<port> defaults to whatever the underlying driver uses, C<user>
+and C<password> defaults to empty.
+
+The defaults are used when you dont supply any connection parameters.
 
 =item C<connect_options>
 
-The default PostgreSQL connections options are:
-
-  RaiseError => 1
-  AutoCommit => 1
-  ChopBlanks => 1
-  pg_enable_utf8 => 1
-
-If you set this value, you must supply a hash_ref supplying the
-appropriate PostgreSQL connection options.
+This option is simply a placeholder - it is up to the driver-specific
+implementation to use this option.
 
 =back
 
@@ -123,49 +118,59 @@ options.
 
 =cut
 
-sub init {
-  my $self = shift;
+sub new {
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = bless {}, $class;
 
   # get options
   my %options;
   if (@_ > 1 and not(@_ % 2)) {
     %options = @_;
-  } elsif (ref($_[0]) eq 'HASH') {
+  } elsif (@_ == 1 and ref($_[0]) eq 'HASH') {
     %options = %{$_[0]};
-  } else {
+  } elsif (@_ > 0) {
     die_from_caller("Invalid arguments passed to new()");
   }
   print STDERR "Arguments to ". ref($self) .": ". Dumper(\%options) if $DEBUG > 5;
-  die_from_caller("Missing 'table' argument") unless $options{table};
-  $self->{table} = $options{table};
-  delete $options{table};
+  $self->{options} = \%options;
 
-  # connect to database - if user passed in a database handle, use it
+  # allow sub-class to control construction
+  $self = $self->init();
+  return undef unless $self;
+
+  # connect to database
   my $dbh;
-  if ($options{dbh}) {
-    $dbh = $options{dbh};
-    delete $options{dbh};
-    $self->{owned} = $options{owned} ? 1 : 0;
-    delete $options{owned};
+  if (exists $options{dbh} or exists $self->{dbh}) {
+    # if user passed in a database handle, use it
+    # check if we are meant to be the owner of id
 
-    # make sure this handle is a valid database handle
-    die_from_caller("Database handle is not real?") unless (ref($dbh) and $dbh->can('ping') and $dbh->ping());
+    $dbh = (exists $options{dbh}) ? $options{dbh} : $self->{dbh};
+    $self->{owned} = (exists $options{owned}) ? ($options{owned} ? 1 : 0) : (exists $self->{owned}) ? ($self->{owned} ? 1 : 0) : 0;
 
-  # otherwise, make a specific database handle.. and since we
-  # constructed the database handle -> we definately need to destroy it
   } else {
+    # otherwise, make a specific database handle.. and since we
+    # constructed the database handle -> we definately need to destroy it
 
-    die_from_caller("Missing 'database' argument") unless $options{database};
-    $options{host} = "localhost" unless $options{host};
-    $options{port} = "5432" unless $options{port};
-    $options{user} = "" unless $options{user};
-    $options{password} = "" unless $options{password};
+    $self->{driver} = (exists $options{driver}) ? $options{driver} : $self->{driver};
+    $self->{database} = (exists $options{database}) ? $options{database} : $self->{database};
+    $self->{host} = (exists $options{host}) ? $options{host} : (exists $self->{host}) ? $self->{host} : undef;
+    $self->{port} = (exists $options{port}) ? $options{port} : (exists $self->{port}) ? $self->{port} : undef;
+    $self->{user} = (exists $options{user}) ? $options{user} : (exists $self->{user}) ? $self->{user} : undef;
+    $self->{password} = (exists $options{password}) ? $options{password} : (exists $self->{password}) ? $self->{password} : undef;
+    $self->{connect_options} = (exists $options{connect_options}) ? $options{connect_options} : (exists $self->{connect_options}) ? $self->{connect_options} : $default_connect_options;
 
-    $dbh = $self->_connect(\%options);
+    die_from_caller("No 'database driver' specification") unless $self->{driver};
+    die_from_caller("No 'database name' specification") unless $self->{database};
+
+    $dbh = $self->_connect();
     $self->{owned} = 1;
   }
 
-  # test database connection for table structure
+  # test database connection and the table structure
+  die_from_caller("Database handle is not real?") unless (ref($dbh) and $dbh->can('ping') and $dbh->ping());
+  $self->{table} = (exists $options{table}) ? $options{table} : $self->{table};
+  die_from_caller("No 'datable table' specification") unless (defined $self->{table} and length $self->{table});
   $self->_test_table_structure($dbh);
 
   # all is good...
@@ -180,19 +185,24 @@ sub init {
 Returns the database connection handle
 
 =cut
+
 sub dbh { shift->{dbh} }
 
 #--------------------------------------------------------------------------
 
-=head2 void set_owned(boolean)
+=head2 void owned(boolean)
 
-Set/clear ownership on the database handle.
+Set/get ownership of the database handle.
 
 =cut
-sub set_owned {
+
+sub owned {
   my $self = shift;
-  my $owned = shift;
-  $self->{owned} = $owned ? 1 : 0;
+  if (@_ > 0) {
+    my $owned = shift;
+    $self->{owned} = $owned ? 1 : 0;
+  }
+  return $self->{owned};
 }
 
 #--------------------------------------------------------------------------
@@ -213,7 +223,7 @@ sub get_rules {
   my @translations;
 
   # ensure connection is good...
-  $dbh->ping() or $dbh = $self->_reconnect($dbh);
+  $dbh->ping() or $dbh = $self->_reconnect();
 
   # setup query
   my $qry = $self->get_query($table,$context,$languages);
@@ -243,10 +253,10 @@ sub get_rules {
 
 =head2 $string get_query($table,$context,\@languages)
 
-Some circumstances allow the generic SQL statement to be used to query
-the database.  However, in some cases you may want to do something
-unusual...  By sub-classing this module, you can create your own
-specific SQL statement.
+Under normal circumstances the generic SQL statement used by this module,
+is suitable to be used to query the database.  However, in some cases you
+may want to do something unusual...  By sub-classing this module, you can
+create your own specific SQL statement.
 
 =cut
 
@@ -280,6 +290,13 @@ code for this module.
 sub get_where { "" }
 
 #--------------------------------------------------------------------------
+# The following methods are not part of the API - they are private.
+#
+# This means that everything above this code-break is allowed/designed
+# to be overloaded.
+#--------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------
 #
 # If this module created its own database handle (or the user wants
 # this module to own the handle), we need to clean up on destruction
@@ -294,34 +311,35 @@ sub DESTROY {
 }
 
 #--------------------------------------------------------------------------
-# The following methods are not part of the API - they are private.
-#
-# This means that everything above this code-break is allowed/designed
-# to be overloaded.
-#--------------------------------------------------------------------------
-
-#--------------------------------------------------------------------------
 #
 # Connect to database using specified connection options
 #
 sub _connect {
   my ($self,$options) = @_;
+  $options = $self unless $options;
 
-  my $connect_string = "dbi:Pg:dbname=". $options->{database} .";host=". $options->{host} .";port=". $options->{port};
-  my $connect_options = $default_connect_options;
-  $connect_options = $options->{connect_options} if exists $options->{connect_options};
+  my $dsn = "dbi:".$options->{driver}.":dbname=". $options->{database} .";";
+  $dsn .= "host=". $options->{host} .";" if $options->{host};
+  $dsn .= "port=". $options->{port} .";" if $options->{port};
+  my $user = $options->{user};
+  my $password = $options->{password};
+  my $connect_options = $options->{connect_options};
 
   # try connecting to database
   my $dbh;
-  eval { $dbh = DBI->connect($connect_string,$options->{user},$options->{password},$connect_options); };
-  die_from_caller("Failed to connect to database:\n- connect string: $connect_string\n- user: ". $options->{user} ."\n- password: ". $options->{password} ."\n- connect options: ". Dumper($connect_options) ."\nError info:\n$@\n") if ($@);
+  eval { $dbh = DBI->connect($dsn,$user,$password,$connect_options); };
+  die_from_caller("Failed to connect to database:\n- dsn: $dsn\n- user: ". (defined $user ? $user : '') ."\n- password: ". (defined $password ? $password : '') ."\n- connect options: ". Dumper($connect_options) ."\nError info:\n$@\n") if ($@);
 
-  $self->{database} = $options->{database};
-  $self->{host} = $options->{host};
-  $self->{port} = $options->{port};
-  $self->{user} = $options->{user};
-  $self->{password} = $options->{password};
-  $self->{connect_options} = $connect_options;
+  if ($self != $options) {
+    $self->{driver} = $options->{driver};
+    $self->{database} = $options->{database};
+    $self->{host} = $options->{host};
+    $self->{port} = $options->{port};
+    $self->{user} = $options->{user};
+    $self->{connect_options} = $options->{connect_options};
+    $self->{table} = $options->{table};
+  }
+
   return $dbh;
 }
 
@@ -363,24 +381,19 @@ sub _test_table_structure {
 # is invalid.
 #
 sub _reconnect {
-  my ($self,$dbh) = @_;
+  my ($self) = @_;
+  my $dbh = $self->{dbh};
 
-  # Make sure that we own the database handle
+  # Make sure that we own the database handle, and have enough information to reconnect
   die_from_caller("The database connection has failed for some reason... I cannot reconnect as I dont own the database handle...") unless $self->{owned};
+  die_from_caller("The database connection has failed for some reason... I cannot reconnect as I dont have any database connection parameters") unless $self->{database};
 
   # cleanup handle
   $dbh->disconnect() if $dbh;
-  undef $dbh;
+  $self->{dbh} = undef;
 
   # reconnect to database
-  my $options;
-  $options->{database} = $self->{database};
-  $options->{host} = $self->{host};
-  $options->{port} = $self->{port};
-  $options->{user} = $self->{user};
-  $options->{password} = $self->{password};
-  $options->{connect_options} = $self->{connect_options};
-  $dbh = $self->_connect($options);
+  $dbh = $self->_connect();
 
   # test database table structure
   $self->_test_table_structure($dbh);
@@ -393,11 +406,6 @@ sub _reconnect {
 1;
 __END__
 #--------------------------------------------------------------------------
-
-=head1 TODO
-
-Re-implement this module so as to database agnostic, moving the
-PostgreSQL specific code into a sub-class.
 
 =cut
 
